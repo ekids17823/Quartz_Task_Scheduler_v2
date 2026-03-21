@@ -1,0 +1,12 @@
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\bin\Debug\net8.0\Scheduler.Core.deps.json
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\bin\Debug\net8.0\Scheduler.Core.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\bin\Debug\net8.0\Scheduler.Core.pdb
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.csproj.AssemblyReference.cache
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.AssemblyInfoInputs.cache
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.AssemblyInfo.cs
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.csproj.CoreCompileInputs.cache
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\refint\Scheduler.Core.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.pdb
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\ref\Scheduler.Core.dll

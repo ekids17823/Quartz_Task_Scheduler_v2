@@ -1,0 +1,218 @@
+using Quartz;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Data.Sqlite;
+using System.Text;
+using System;
+using System.Threading.Tasks;
+using System.Threading;
+
+namespace Scheduler.Core.Jobs;
+
+public class ProcessRunnerJob : IJob
+{
+    private readonly ILogger<ProcessRunnerJob> _logger;
+
+    public ProcessRunnerJob(ILogger<ProcessRunnerJob> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task Execute(IJobExecutionContext context)
+    {
+        var dataMap = context.MergedJobDataMap;
+        var fileName = dataMap.ContainsKey("FileName") ? dataMap.GetString("FileName") : null;
+        var arguments = dataMap.ContainsKey("Arguments") ? dataMap.GetString("Arguments") : string.Empty;
+        var workingDirectory = dataMap.ContainsKey("WorkingDirectory") ? dataMap.GetString("WorkingDirectory") : string.Empty;
+        
+        var maxRunTimeSecondsStr = dataMap.ContainsKey("MaxRunTimeSeconds") ? dataMap.GetString("MaxRunTimeSeconds") : null;
+        int? maxRunTimeSeconds = int.TryParse(maxRunTimeSecondsStr, out var v) ? v : null;
+
+        var jobKey = context.JobDetail.Key;
+        var concurrencyRule = dataMap.ContainsKey("ConcurrencyRule") ? dataMap.GetString("ConcurrencyRule") : "Parallel";
+        
+        var executingJobs = await context.Scheduler.GetCurrentlyExecutingJobs();
+        var otherInstances = System.Linq.Enumerable.Where(executingJobs, x => x.JobDetail.Key.Equals(jobKey) && x.FireInstanceId != context.FireInstanceId).ToList();
+
+        if (otherInstances.Any())
+        {
+            if (concurrencyRule == "DoNotStart")
+            {
+                _logger.LogInformation("Job {JobKey} aborted because another instance is running (Rule: DoNotStart).", jobKey);
+                SaveLog(jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
+                return;
+            }
+            else if (concurrencyRule == "StopExisting")
+            {
+                _logger.LogInformation("Job {JobKey} stopping existing instances (Rule: StopExisting).", jobKey);
+                foreach(var inst in otherInstances)
+                {
+                    await context.Scheduler.Interrupt(inst.FireInstanceId);
+                }
+            }
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        bool isSuccess = false;
+        int? exitCode = null;
+        var stdOutBuilder = new StringBuilder();
+        var stdErrBuilder = new StringBuilder();
+        string? errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            errorMessage = "執行緒失敗: 未提供 FileName";
+            _logger.LogError(errorMessage);
+            SaveLog(jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
+            return;
+        }
+
+        _logger.LogInformation("執行緒 [{JobKey}] 開始啟動程序: {FileName} {Arguments}", jobKey, fileName, arguments);
+
+        try
+        {
+            bool isHidden = dataMap.ContainsKey("IsHidden") ? dataMap.GetBooleanValueFromString("IsHidden") : false;
+
+            if (!string.IsNullOrWhiteSpace(workingDirectory) && !fileName.Contains('\\') && !fileName.Contains('/'))
+            {
+                string combinedPath = System.IO.Path.Combine(workingDirectory, fileName);
+                if (System.IO.File.Exists(combinedPath))
+                {
+                    fileName = combinedPath; // 修正為絕對路徑
+                }
+            }
+
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                WorkingDirectory = workingDirectory
+            };
+
+            if (isHidden)
+            {
+                processStartInfo.UseShellExecute = false;
+                processStartInfo.CreateNoWindow = true;
+                processStartInfo.RedirectStandardOutput = true;
+                processStartInfo.RedirectStandardError = true;
+            }
+            else
+            {
+                // 用原生的 Shell 彈出終端機畫面讓使用者肉眼可見並進行互動
+                processStartInfo.UseShellExecute = true;
+                processStartInfo.CreateNoWindow = false;
+                processStartInfo.RedirectStandardOutput = false;
+                processStartInfo.RedirectStandardError = false;
+            }
+
+            using var process = new Process { StartInfo = processStartInfo };
+
+            if (isHidden)
+            {
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        stdOutBuilder.AppendLine(e.Data);
+                        _logger.LogInformation("[{JobKey}] STDOUT: {Data}", jobKey, e.Data);
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        stdErrBuilder.AppendLine(e.Data);
+                        _logger.LogWarning("[{JobKey}] STDERR: {Data}", jobKey, e.Data);
+                    }
+                };
+            }
+
+            process.Start();
+            
+            if (isHidden)
+            {
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+            }
+
+            // 超時 / 中斷 處理機制
+            using var cts = new CancellationTokenSource();
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, cts.Token);
+            
+            if (maxRunTimeSeconds.HasValue && maxRunTimeSeconds.Value > 0)
+            {
+                cts.CancelAfter(TimeSpan.FromSeconds(maxRunTimeSeconds.Value));
+            }
+
+            try
+            {
+                await process.WaitForExitAsync(linkedCts.Token);
+                exitCode = process.ExitCode;
+                isSuccess = exitCode == 0;
+                if (!isSuccess) errorMessage = "執行程序結束但傳回非 0 狀態碼。";
+            }
+            catch (TaskCanceledException)
+            {
+                if (cts.IsCancellationRequested)
+                {
+                    errorMessage = $"執行時間超過上限 {maxRunTimeSeconds} 秒！觸發強制中止。";
+                    _logger.LogWarning("[{JobKey}] {Msg}", jobKey, errorMessage);
+                }
+                else
+                {
+                    errorMessage = "已因新排程觸發且設定為『停止現有的執行個體』而被外部強制中斷。";
+                    _logger.LogWarning("[{JobKey}] {Msg}", jobKey, errorMessage);
+                }
+                
+                try { process.Kill(true); } catch { } 
+                await Task.Delay(100); // 讓執行緒死透、串流關閉
+            }
+
+            if (exitCode.HasValue)
+            {
+                _logger.LogInformation("執行緒 [{JobKey}] 結束，Exit Code: {ExitCode}", jobKey, exitCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.ToString();
+            _logger.LogError(ex, "執行緒 [{JobKey}] 發生未預期的錯誤。", jobKey);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            SaveLog(jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
+        }
+    }
+
+    private void SaveLog(string name, string group, DateTime fireTime, long runTime, bool isSuccess, int? exitCode, string? stdOut, string? stdErr, string? error)
+    {
+        try
+        {
+            using var conn = new SqliteConnection("Data Source=quartz.db;");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO JobExecutionLogs 
+                (JobName, JobGroup, FireTimeUtc, RunTimeMs, IsSuccess, ExitCode, StdOut, StdErr, ErrorMessage) 
+                VALUES (@Name, @Group, @FireTime, @RunTime, @IsSuccess, @ExitCode, @StdOut, @StdErr, @Error)";
+                
+            cmd.Parameters.AddWithValue("@Name", name);
+            cmd.Parameters.AddWithValue("@Group", group);
+            cmd.Parameters.AddWithValue("@FireTime", fireTime);
+            cmd.Parameters.AddWithValue("@RunTime", runTime);
+            cmd.Parameters.AddWithValue("@IsSuccess", isSuccess ? 1 : 0);
+            cmd.Parameters.AddWithValue("@ExitCode", (object?)exitCode ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@StdOut", (object?)stdOut ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@StdErr", (object?)stdErr ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@Error", (object?)error ?? DBNull.Value);
+            
+            cmd.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "無法寫入排程執行日誌。");
+        }
+    }
+}

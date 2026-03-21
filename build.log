@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Scheduler.Core -> D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\bin\Debug\net8.0\Scheduler.Core.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\JobItemViewModel.cs(63,9): error CS0103: The name 'MisfireActionFireAndProceed' does not exist in the current context [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\JobItemViewModel.cs(64,9): error CS0103: The name 'ConcurrencyRule' does not exist in the current context [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(87,55): error CS1061: 'JobItemViewModel' does not contain a definition for 'MisfireActionFireAndProceed' and no accessible extension method 'MisfireActionFireAndProceed' accepting a first argument of type 'JobItemViewModel' could be found (are you missing a using directive or an assembly reference?) [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(89,47): error CS1061: 'JobItemViewModel' does not contain a definition for 'ConcurrencyRule' and no accessible extension method 'ConcurrencyRule' accepting a first argument of type 'JobItemViewModel' could be found (are you missing a using directive or an assembly reference?) [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+
+Build FAILED.
+
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\JobItemViewModel.cs(63,9): error CS0103: The name 'MisfireActionFireAndProceed' does not exist in the current context [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\JobItemViewModel.cs(64,9): error CS0103: The name 'ConcurrencyRule' does not exist in the current context [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(87,55): error CS1061: 'JobItemViewModel' does not contain a definition for 'MisfireActionFireAndProceed' and no accessible extension method 'MisfireActionFireAndProceed' accepting a first argument of type 'JobItemViewModel' could be found (are you missing a using directive or an assembly reference?) [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(89,47): error CS1061: 'JobItemViewModel' does not contain a definition for 'ConcurrencyRule' and no accessible extension method 'ConcurrencyRule' accepting a first argument of type 'JobItemViewModel' could be found (are you missing a using directive or an assembly reference?) [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_op45nju2_wpftmp.csproj]
+    0 Warning(s)
+    4 Error(s)
+
+Time Elapsed 00:00:01.02

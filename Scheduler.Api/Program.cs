@@ -1,0 +1,94 @@
+using Microsoft.Data.Sqlite;
+using Quartz;
+using Scheduler.Core.Jobs;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// 1. 初始化資料庫
+var dbPath = Path.Combine(builder.Environment.ContentRootPath, "quartz.db");
+var connString = $"Data Source={dbPath};";
+
+if (!File.Exists(dbPath))
+{
+    Console.WriteLine("Quartz database not found, initializing...");
+    using var connection = new SqliteConnection(connString);
+    connection.Open();
+    var scriptPath = Path.Combine(builder.Environment.ContentRootPath, "tables_sqlite.sql");
+    if (File.Exists(scriptPath))
+    {
+        var script = File.ReadAllText(scriptPath);
+        using var command = connection.CreateCommand();
+        command.CommandText = script;
+        command.ExecuteNonQuery();
+        Console.WriteLine("Quartz SQLite tables created.");
+    }
+    else
+    {
+        Console.WriteLine($"WARNING: {scriptPath} not found!");
+    }
+}
+
+// 確保我們自訂的 Log 資料表存在 (即使 quartz.db 已經被建立了也要檢查)
+using (var connection = new SqliteConnection(connString))
+{
+    connection.Open();
+    using var logCommand = connection.CreateCommand();
+    logCommand.CommandText = @"
+        CREATE TABLE IF NOT EXISTS JobExecutionLogs (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            JobName TEXT NOT NULL,
+            JobGroup TEXT NOT NULL,
+            FireTimeUtc DATETIME NOT NULL,
+            RunTimeMs INTEGER NOT NULL,
+            IsSuccess INTEGER NOT NULL,
+            ExitCode INTEGER,
+            StdOut TEXT,
+            StdErr TEXT,
+            ErrorMessage TEXT
+        );";
+    logCommand.ExecuteNonQuery();
+}
+
+// 2. 註冊 Quartz
+builder.Services.AddQuartz(q =>
+{
+    // 如果想要確保我們能在 DI 容器中拿到 Job，可以設定 Concurrent / Scoped
+    
+    // 使用資料庫持久化
+    q.UsePersistentStore(s =>
+    {
+        s.PerformSchemaValidation = false;
+        s.UseProperties = true;
+        s.UseMicrosoftSQLite(sqlite =>
+        {
+            sqlite.ConnectionString = connString;
+        });
+        s.UseNewtonsoftJsonSerializer();
+    });
+});
+
+// 3. 註冊 Quartz 的託管服務 (背景執行)
+builder.Services.AddQuartzHostedService(opt =>
+{
+    opt.WaitForJobsToComplete = true; // 關閉程式時等 Job 跑完
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
