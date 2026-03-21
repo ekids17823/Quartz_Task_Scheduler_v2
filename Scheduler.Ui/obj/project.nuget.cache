@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ijtvaArPie4=",
+  "dgSpecHash": "FZh6rgh4Q7k=",
   "success": true,
   "projectFilePath": "D:\\NUK\\Program\\VS code\\Quartz_Task_Scheduler_v2\\Scheduler.Ui\\Scheduler.Ui.csproj",
   "expectedPackageFiles": [
@@ -14,7 +14,9 @@
     "C:\\Users\\ekids\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.11\\sqlitepclraw.bundle_e_sqlite3.2.1.11.nupkg.sha512",
     "C:\\Users\\ekids\\.nuget\\packages\\sqlitepclraw.core\\2.1.11\\sqlitepclraw.core.2.1.11.nupkg.sha512",
     "C:\\Users\\ekids\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.11\\sqlitepclraw.lib.e_sqlite3.2.1.11.nupkg.sha512",
-    "C:\\Users\\ekids\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.11\\sqlitepclraw.provider.e_sqlite3.2.1.11.nupkg.sha512"
+    "C:\\Users\\ekids\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.11\\sqlitepclraw.provider.e_sqlite3.2.1.11.nupkg.sha512",
+    "C:\\Users\\ekids\\.nuget\\packages\\wpf-ui\\4.2.0\\wpf-ui.4.2.0.nupkg.sha512",
+    "C:\\Users\\ekids\\.nuget\\packages\\wpf-ui.abstractions\\4.2.0\\wpf-ui.abstractions.4.2.0.nupkg.sha512"
   ],
   "logs": []
 }

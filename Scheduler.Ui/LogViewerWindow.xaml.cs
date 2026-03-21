@@ -2,10 +2,12 @@ using System.Windows;
 using System.Linq;
 using Scheduler.Ui.Services;
 using Scheduler.Ui.ViewModels;
+using Wpf.Ui.Controls;
+using Wpf.Ui.Appearance;
 
 namespace Scheduler.Ui;
 
-public partial class LogViewerWindow : Window
+public partial class LogViewerWindow : FluentWindow
 {
     private readonly string _jobGroup;
     private readonly string _jobName;
@@ -13,6 +15,7 @@ public partial class LogViewerWindow : Window
 
     public LogViewerWindow(string group, string name)
     {
+        ApplicationThemeManager.Apply(ApplicationTheme.Light);
         InitializeComponent();
         _jobGroup = group;
         _jobName = name;

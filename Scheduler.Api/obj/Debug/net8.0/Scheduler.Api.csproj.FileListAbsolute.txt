@@ -71,3 +71,4 @@ D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Api\obj\Debug\net8.0\S
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Api\obj\Debug\net8.0\ref\Scheduler.Api.dll
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Api\bin\Debug\net8.0\Microsoft.Extensions.Configuration.Abstractions.dll
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Api\bin\Debug\net8.0\Microsoft.Extensions.Primitives.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Api\bin\Debug\net8.0\tables_sqlite.sql

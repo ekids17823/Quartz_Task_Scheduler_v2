@@ -25,6 +25,7 @@ public class ScheduleRequest
     public bool MisfireActionFireAndProceed { get; set; } = true;
     public string ConcurrencyRule { get; set; } = "Parallel";
     public bool IsHidden { get; set; } = false;
+    public string Author { get; set; } = string.Empty;
 
     // 多重觸發程序
     public List<TriggerDto> Triggers { get; set; } = new();

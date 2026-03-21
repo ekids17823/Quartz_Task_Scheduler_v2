@@ -18,4 +18,10 @@
     <ProjectReference Include="..\Scheduler.Core\Scheduler.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="tables_sqlite.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

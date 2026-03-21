@@ -28,6 +28,38 @@ public class JobsController : ControllerBase
         var executingJobs = await scheduler.GetCurrentlyExecutingJobs();
         var jobs = new List<JobInfo>();
 
+        var lastRunResults = new Dictionary<string, string>();
+        try
+        {
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT JobGroup, JobName, ExitCode, IsSuccess, ErrorMessage FROM JobExecutionLogs ORDER BY FireTimeUtc DESC";
+            using var reader = cmd.ExecuteReader();
+            while(reader.Read())
+            {
+                string key = $"{reader.GetString(0)}::{reader.GetString(1)}";
+                if (!lastRunResults.ContainsKey(key))
+                {
+                    bool isSuccess = reader.GetInt32(3) == 1;
+                    string? errMsg = reader.IsDBNull(4) ? null : reader.GetString(4);
+                    if (isSuccess)
+                    {
+                        int exitCode = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+                        lastRunResults[key] = $"成功執行 ({exitCode})";
+                    }
+                    else
+                    {
+                        if (errMsg != null && errMsg.Contains("並發")) lastRunResults[key] = "被忽略";
+                        else if (errMsg != null && errMsg.Contains("中斷")) lastRunResults[key] = "已終止";
+                        else lastRunResults[key] = "執行失敗";
+                    }
+                }
+            }
+        }
+        catch { }
+
+
         foreach (var jobKey in jobKeys)
         {
             var detail = await scheduler.GetJobDetail(jobKey);
@@ -43,7 +75,8 @@ public class JobsController : ControllerBase
                 Description = detail.Description,
                 FileName = detail.JobDataMap.ContainsKey("FileName") ? detail.JobDataMap.GetString("FileName") : null,
                 Arguments = detail.JobDataMap.ContainsKey("Arguments") ? detail.JobDataMap.GetString("Arguments") : null,
-                WorkingDirectory = detail.JobDataMap.ContainsKey("WorkingDirectory") ? detail.JobDataMap.GetString("WorkingDirectory") : null
+                WorkingDirectory = detail.JobDataMap.ContainsKey("WorkingDirectory") ? detail.JobDataMap.GetString("WorkingDirectory") : null,
+                Author = detail.JobDataMap.ContainsKey("Author") ? detail.JobDataMap.GetString("Author") : string.Empty
             };
             
             if (detail.JobDataMap.ContainsKey("MisfireActionFireAndProceed"))
@@ -116,12 +149,17 @@ public class JobsController : ControllerBase
                 }
                 
                 int? repeatInterval = null;
-                if (t.JobDataMap.ContainsKey("RepeatIntervalMinutes"))
+                string? repeatUnit = null;
+                if (t.JobDataMap.ContainsKey("RepeatInterval")) {
+                    if (int.TryParse(t.JobDataMap.GetString("RepeatInterval"), out int val)) repeatInterval = val;
+                    repeatUnit = t.JobDataMap.GetString("RepeatIntervalUnit") ?? "Minute";
+                } else if (t.JobDataMap.ContainsKey("RepeatIntervalMinutes")) {
+                    if (int.TryParse(t.JobDataMap.GetString("RepeatIntervalMinutes"), out int val)) { repeatInterval = val; repeatUnit = "Minute"; }
+                }
+                int? weeklyInterval = null;
+                if (t.JobDataMap.ContainsKey("WeeklyInterval"))
                 {
-                    if (int.TryParse(t.JobDataMap.GetString("RepeatIntervalMinutes"), out int val))
-                    {
-                        repeatInterval = val;
-                    }
+                    if (int.TryParse(t.JobDataMap.GetString("WeeklyInterval"), out int val)) weeklyInterval = val;
                 }
                 
                 jobInfo.Triggers.Add(new TriggerDto
@@ -134,12 +172,17 @@ public class JobsController : ControllerBase
                     EndAt = t.EndTimeUtc,
                     NextFireTime = t.GetNextFireTimeUtc()?.LocalDateTime,
                     PreviousFireTime = t.GetPreviousFireTimeUtc()?.LocalDateTime,
-                    RepeatIntervalMinutes = repeatInterval,
+                    RepeatIntervalMinutes = repeatInterval, // legacy format mapped just in case
+                    RepeatInterval = repeatInterval,
+                    RepeatIntervalUnit = repeatUnit,
+                    WeeklyInterval = weeklyInterval,
                     State = tState
                 });
             }
 
             jobInfo.State = jobCompositeState;
+            string dicKey = $"{jobKey.Group}::{jobKey.Name}";
+            jobInfo.LastRunResult = lastRunResults.ContainsKey(dicKey) ? lastRunResults[dicKey] : null;
             jobs.Add(jobInfo);
         }
 
@@ -173,6 +216,7 @@ public class JobsController : ControllerBase
             .UsingJobData("ConcurrencyRule", request.ConcurrencyRule)
             .UsingJobData("IsDisabled", existingDisabled.ToString())
             .UsingJobData("IsHidden", request.IsHidden.ToString())
+            .UsingJobData("Author", request.Author)
             .StoreDurably();
 
         if (request.MaxRunTimeSeconds.HasValue)
@@ -193,15 +237,22 @@ public class JobsController : ControllerBase
 
             if (tReq.StartAt.HasValue) tb.StartAt(tReq.StartAt.Value);
             if (tReq.EndAt.HasValue) tb.EndAt(tReq.EndAt.Value);
-            if (tReq.RepeatIntervalMinutes.HasValue && tReq.RepeatIntervalMinutes.Value > 0)
+            int repVal = tReq.RepeatInterval ?? tReq.RepeatIntervalMinutes ?? 0;
+            string repUnit = string.IsNullOrWhiteSpace(tReq.RepeatIntervalUnit) ? "Minute" : tReq.RepeatIntervalUnit;
+            if (repVal > 0)
             {
-                tb.UsingJobData("RepeatIntervalMinutes", tReq.RepeatIntervalMinutes.Value.ToString());
+                tb.UsingJobData("RepeatInterval", repVal.ToString());
+                tb.UsingJobData("RepeatIntervalUnit", repUnit);
+            }
+            if (tReq.WeeklyInterval.HasValue && tReq.WeeklyInterval.Value > 1)
+            {
+                tb.UsingJobData("WeeklyInterval", tReq.WeeklyInterval.Value.ToString());
             }
 
             if (!string.IsNullOrWhiteSpace(tReq.CronExpression))
             {
                 // 若進階設定啟用了「每 N 分鐘重複一次」，且本身是每天/每週的 Cron，我們必須轉譯為 DailyTimeIntervalSchedule
-                if (tReq.RepeatIntervalMinutes.HasValue && tReq.RepeatIntervalMinutes.Value > 0)
+                if (repVal > 0)
                 {
                     var parts = tReq.CronExpression.Split(' ');
                     // 確保這是由我們 ViewModel 產生、可預測的 Cron (長度 >= 6 且包含具體時分)
@@ -210,8 +261,11 @@ public class JobsController : ControllerBase
                         string dow = parts[5];
                         tb.WithDailyTimeIntervalSchedule(x => 
                         {
-                            x.WithIntervalInMinutes(tReq.RepeatIntervalMinutes.Value)
-                             .StartingDailyAt(new TimeOfDay(hour, min, sec));
+                            if (repUnit == "Second") x.WithIntervalInSeconds(repVal);
+                            else if (repUnit == "Hour") x.WithIntervalInHours(repVal);
+                            else x.WithIntervalInMinutes(repVal);
+                            
+                            x.StartingDailyAt(new TimeOfDay(hour, min, sec));
 
                             if (dow != "?" && dow != "*") 
                             {
@@ -254,11 +308,13 @@ public class JobsController : ControllerBase
                     });
                 }
             }
-            else if (tReq.RepeatIntervalMinutes.HasValue && tReq.RepeatIntervalMinutes.Value > 0)
+            else if (repVal > 0)
             {
                 tb.WithSimpleSchedule(x => 
                 {
-                    x.WithIntervalInMinutes(tReq.RepeatIntervalMinutes.Value).RepeatForever();
+                    if (repUnit == "Second") x.WithIntervalInSeconds(repVal).RepeatForever();
+                    else if (repUnit == "Hour") x.WithIntervalInHours(repVal).RepeatForever();
+                    else x.WithIntervalInMinutes(repVal).RepeatForever();
                     if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireNow();
                     else x.WithMisfireHandlingInstructionNextWithExistingCount();
                 });

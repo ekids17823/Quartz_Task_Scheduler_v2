@@ -63,3 +63,7 @@ D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net10.0-w
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net10.0-windows\EditTriggerWindow.g.cs
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net10.0-windows\Controls\TimePickerControl.baml
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net10.0-windows\Controls\TimePickerControl.g.cs
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\bin\Debug\net10.0-windows\Wpf.Ui.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\bin\Debug\net10.0-windows\Wpf.Ui.Abstractions.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net10.0-windows\App.baml
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\bin\Debug\net10.0-windows\appsettings.json

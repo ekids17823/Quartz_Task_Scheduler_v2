@@ -57,7 +57,10 @@ public partial class EditTriggerViewModel : ObservableObject
     private bool _isRepeating;
 
     [ObservableProperty]
-    private int _repeatIntervalMinutes = 60;
+    private int _repeatInterval = 60;
+    
+    [ObservableProperty]
+    private int _repeatIntervalUnitIndex = 1; // 0=秒, 1=分鐘, 2=小時
 
     [ObservableProperty]
     private string _cronExpression = string.Empty;
@@ -84,8 +87,87 @@ public partial class EditTriggerViewModel : ObservableObject
     [ObservableProperty] private bool _weekFri;
     [ObservableProperty] private bool _weekSat;
 
+    [ObservableProperty] private bool _monthJan = true;
+    [ObservableProperty] private bool _monthFeb = true;
+    [ObservableProperty] private bool _monthMar = true;
+    [ObservableProperty] private bool _monthApr = true;
+    [ObservableProperty] private bool _monthMay = true;
+    [ObservableProperty] private bool _monthJun = true;
+    [ObservableProperty] private bool _monthJul = true;
+    [ObservableProperty] private bool _monthAug = true;
+    [ObservableProperty] private bool _monthSep = true;
+    [ObservableProperty] private bool _monthOct = true;
+    [ObservableProperty] private bool _monthNov = true;
+    [ObservableProperty] private bool _monthDec = true;
+
+    [ObservableProperty] private bool _isMonthlyModeDays = true;
+    [ObservableProperty] private string _monthlyDaysText = "1";
+    
+    [ObservableProperty] private bool _isMonthlyModeOn = false;
+    [ObservableProperty] private int _monthlyOnSeqIndex = 0;
+    [ObservableProperty] private int _monthlyOnDowIndex = 1;
+    [ObservableProperty] private bool _isAllMonthsSelected = true;
+    
+    private bool _suppressMonthUpdates;
+
+    [RelayCommand]
+    private void ToggleAllMonths()
+    {
+        _suppressMonthUpdates = true;
+        foreach (var m in MonthsList) m.IsSelected = IsAllMonthsSelected;
+        _suppressMonthUpdates = false;
+        UpdateMonthsSummary();
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<MonthDayItem> MonthsList { get; } = new();
+    [ObservableProperty] private string _monthsSummary = "所有月份";
+
+    private void UpdateMonthsSummary()
+    {
+        if (_suppressMonthUpdates) return;
+        var sel = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Where(MonthsList, x => x.IsSelected));
+        
+        _suppressMonthUpdates = true;
+        IsAllMonthsSelected = sel.Count == 12;
+        _suppressMonthUpdates = false;
+        if (sel.Count == 12) MonthsSummary = "所有月份";
+        else if (sel.Count == 0) MonthsSummary = "未選擇";
+        else MonthsSummary = string.Join(",", System.Linq.Enumerable.Select(sel, x => x.Display));
+        
+        MonthJan = MonthsList[0].IsSelected;
+        MonthFeb = MonthsList[1].IsSelected;
+        MonthMar = MonthsList[2].IsSelected;
+        MonthApr = MonthsList[3].IsSelected;
+        MonthMay = MonthsList[4].IsSelected;
+        MonthJun = MonthsList[5].IsSelected;
+        MonthJul = MonthsList[6].IsSelected;
+        MonthAug = MonthsList[7].IsSelected;
+        MonthSep = MonthsList[8].IsSelected;
+        MonthOct = MonthsList[9].IsSelected;
+        MonthNov = MonthsList[10].IsSelected;
+        MonthDec = MonthsList[11].IsSelected;
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<MonthDayItem> MonthDaysList { get; } = new();
+    [ObservableProperty] private string _monthDaysSummary = "1";
+
+    private void UpdateMonthDaysSummary()
+    {
+        var sel = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Where(MonthDaysList, x => x.IsSelected));
+        MonthDaysSummary = sel.Count == 0 ? "未選擇" : string.Join(",", System.Linq.Enumerable.Select(sel, x => x.Display));
+        MonthlyDaysText = sel.Count == 0 ? "1" : string.Join(",", System.Linq.Enumerable.Select(sel, x => x.Value));
+    }
+
     public EditTriggerViewModel(TriggerDto? existing = null)
     {
+        string[] mNames = {"一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月"};
+        for (int i=0; i<12; i++) MonthsList.Add(new MonthDayItem(mNames[i], (i+1).ToString(), UpdateMonthsSummary));
+        foreach(var m in MonthsList) m.IsSelected = true;
+
+        for (int i = 1; i <= 31; i++) MonthDaysList.Add(new MonthDayItem(i.ToString(), i.ToString(), UpdateMonthDaysSummary));
+        MonthDaysList.Add(new MonthDayItem("最後", "L", UpdateMonthDaysSummary));
+        MonthDaysList[0].IsSelected = true;
+
         _original = existing ?? new TriggerDto();
         
         if (existing != null)
@@ -101,10 +183,18 @@ public partial class EditTriggerViewModel : ObservableObject
                 EndAtDate = existing.EndAt.Value.LocalDateTime.Date;
                 EndAtTimeString = existing.EndAt.Value.LocalDateTime.ToString("HH:mm:ss");
             }
-            if (existing.RepeatIntervalMinutes.HasValue && existing.RepeatIntervalMinutes.Value > 0)
+            if (existing.WeeklyInterval.HasValue && existing.WeeklyInterval.Value > 1)
+            {
+                WeeklyInterval = existing.WeeklyInterval.Value;
+            }
+            int repVal = existing.RepeatInterval ?? existing.RepeatIntervalMinutes ?? 0;
+            if (repVal > 0)
             {
                 IsRepeating = true;
-                RepeatIntervalMinutes = existing.RepeatIntervalMinutes.Value;
+                RepeatInterval = repVal;
+                if (existing.RepeatIntervalUnit == "Second") RepeatIntervalUnitIndex = 0;
+                else if (existing.RepeatIntervalUnit == "Hour") RepeatIntervalUnitIndex = 2;
+                else RepeatIntervalUnitIndex = 1;
             }
             
             CronExpression = existing.CronExpression ?? string.Empty;
@@ -125,19 +215,37 @@ public partial class EditTriggerViewModel : ObservableObject
         if (parts.Length >= 6)
         {
             var dom = parts[3];
+            var mon = parts[4];
             var dow = parts[5];
+
+            if (mon != "*" && mon != "?")
+            {
+                var dict = new System.Collections.Generic.HashSet<string>(mon.Split(','));
+                MonthsList[0].IsSelected = dict.Contains("1") || dict.Contains("JAN");
+                MonthsList[1].IsSelected = dict.Contains("2") || dict.Contains("FEB");
+                MonthsList[2].IsSelected = dict.Contains("3") || dict.Contains("MAR");
+                MonthsList[3].IsSelected = dict.Contains("4") || dict.Contains("APR");
+                MonthsList[4].IsSelected = dict.Contains("5") || dict.Contains("MAY");
+                MonthsList[5].IsSelected = dict.Contains("6") || dict.Contains("JUN");
+                MonthsList[6].IsSelected = dict.Contains("7") || dict.Contains("JUL");
+                MonthsList[7].IsSelected = dict.Contains("8") || dict.Contains("AUG");
+                MonthsList[8].IsSelected = dict.Contains("9") || dict.Contains("SEP");
+                MonthsList[9].IsSelected = dict.Contains("10") || dict.Contains("OCT");
+                MonthsList[10].IsSelected = dict.Contains("11") || dict.Contains("NOV");
+                MonthsList[11].IsSelected = dict.Contains("12") || dict.Contains("DEC");
+            }
 
             if (dom.StartsWith("1/"))
             {
                 IsDaily = true;
                 if (int.TryParse(dom.Substring(2), out int d)) DailyInterval = d;
             }
-            else if ((dom == "*" || dom == "?") && (dow == "*" || dow == "?"))
+            else if ((dom == "*" || dom == "?") && (dow == "*" || dow == "?") && (mon == "*" || mon == "?"))
             {
                 IsDaily = true;
                 DailyInterval = 1;
             }
-            else if (dow != "*" && dow != "?")
+            else if (dow != "*" && dow != "?" && !dow.Contains("#") && !dow.EndsWith("L"))
             {
                 IsWeekly = true;
                 WeekSun = dow.Contains("SUN");
@@ -148,13 +256,30 @@ public partial class EditTriggerViewModel : ObservableObject
                 WeekFri = dow.Contains("FRI");
                 WeekSat = dow.Contains("SAT");
             }
-            else if (dom == "1")
+            else if (dow != "*" && dow != "?" && (dow.Contains("#") || dow.EndsWith("L")))
             {
                 IsMonthly = true;
+                IsMonthlyModeOn = true;
+                string dw = dow.Substring(0, 3);
+                string[] dows = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+                MonthlyOnDowIndex = Math.Max(0, Array.IndexOf(dows, dw));
+                
+                if (dow.EndsWith("L")) MonthlyOnSeqIndex = 4;
+                else if (dow.EndsWith("#1")) MonthlyOnSeqIndex = 0;
+                else if (dow.EndsWith("#2")) MonthlyOnSeqIndex = 1;
+                else if (dow.EndsWith("#3")) MonthlyOnSeqIndex = 2;
+                else if (dow.EndsWith("#4")) MonthlyOnSeqIndex = 3;
+            }
+            else if (dom != "*" && dom != "?")
+            {
+                IsMonthly = true;
+                IsMonthlyModeDays = true;
+                MonthlyDaysText = dom;
+                var days = new System.Collections.Generic.HashSet<string>(dom.Split(','));
+                foreach(var md in MonthDaysList) md.IsSelected = days.Contains(md.Value);
             }
             else
             {
-                // Unrecognized Cron, default to Daily as fallback since Custom is removed
                 IsDaily = true;
                 DailyInterval = 1;
             }
@@ -191,8 +316,35 @@ public partial class EditTriggerViewModel : ObservableObject
         }
         if (IsMonthly)
         {
-            // MVP 簡單實作：每個月1號執行
-            return $"{sec} {min} {hour} 1 * ?";
+            var mList = new System.Collections.Generic.List<string>();
+            if (MonthJan) mList.Add("1");
+            if (MonthFeb) mList.Add("2");
+            if (MonthMar) mList.Add("3");
+            if (MonthApr) mList.Add("4");
+            if (MonthMay) mList.Add("5");
+            if (MonthJun) mList.Add("6");
+            if (MonthJul) mList.Add("7");
+            if (MonthAug) mList.Add("8");
+            if (MonthSep) mList.Add("9");
+            if (MonthOct) mList.Add("10");
+            if (MonthNov) mList.Add("11");
+            if (MonthDec) mList.Add("12");
+            
+            string mStr = mList.Count == 0 || mList.Count == 12 ? "*" : string.Join(",", mList);
+
+            if (IsMonthlyModeDays)
+            {
+                string dStr = string.IsNullOrWhiteSpace(MonthlyDaysText) ? "1" : MonthlyDaysText.Trim();
+                if (dStr.Equals("最後一天", StringComparison.OrdinalIgnoreCase) || dStr.Equals("L", StringComparison.OrdinalIgnoreCase)) dStr = "L";
+                return $"{sec} {min} {hour} {dStr} {mStr} ?";
+            }
+            else
+            {
+                string[] seqs = { "#1", "#2", "#3", "#4", "L" };
+                string[] dows = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+                string dow = dows[MonthlyOnDowIndex] + seqs[MonthlyOnSeqIndex];
+                return $"{sec} {min} {hour} ? {mStr} {dow}";
+            }
         }
         return string.Empty;
     }
@@ -219,7 +371,9 @@ public partial class EditTriggerViewModel : ObservableObject
             TriggerGroup = _original.TriggerGroup,
             StartAt = start,
             EndAt = end,
-            RepeatIntervalMinutes = IsRepeating ? RepeatIntervalMinutes : null,
+            RepeatInterval = IsRepeating ? RepeatInterval : null,
+            RepeatIntervalUnit = IsRepeating ? (RepeatIntervalUnitIndex == 0 ? "Second" : (RepeatIntervalUnitIndex == 2 ? "Hour" : "Minute")) : null,
+            WeeklyInterval = IsWeekly && WeeklyInterval > 1 ? WeeklyInterval : null,
             CronExpression = string.IsNullOrWhiteSpace(finalCron) ? null : finalCron.Trim(),
             State = _original.State
         };
@@ -231,4 +385,24 @@ public partial class EditTriggerViewModel : ObservableObject
         window.DialogResult = true;
         window.Close();
     }
+}
+
+public partial class MonthDayItem : ObservableObject
+{
+    public string Display { get; }
+    public string Value { get; }
+    
+    [ObservableProperty]
+    private bool _isSelected;
+    
+    private readonly Action _onSelectionChanged;
+    
+    public MonthDayItem(string display, string value, Action onSelectionChanged)
+    {
+        Display = display;
+        Value = value;
+        _onSelectionChanged = onSelectionChanged;
+    }
+    
+    partial void OnIsSelectedChanged(bool value) => _onSelectionChanged?.Invoke();
 }

@@ -57,12 +57,34 @@ public static class TriggerDescriptionHelper
                         };
                         var darr = dow.Split(',').Select(x => dowMap.TryGetValue(x.ToUpper(), out var c) ? c : x);
                         string dowStr = string.Join("、", darr);
-                        baseDesc = $"從 {start} 開始，每個星期的 {dowStr} 的 {exactTime}";
+                        string weeklyPrefix = trigger.WeeklyInterval.HasValue && trigger.WeeklyInterval.Value > 1 ? $"每隔 {trigger.WeeklyInterval.Value} 個" : "每個";
+                        baseDesc = $"從 {start} 開始，{weeklyPrefix}星期的 {dowStr} 的 {exactTime}";
                     }
                 }
-                else if (dom == "1") // 簡易每月
+                else if (dom != "*" && dom != "?") 
                 {
-                    baseDesc = $"每個月的 第一天 的 {exactTime}";
+                    string mStr = (parts[4] == "*" || parts[4] == "?") ? "每個月份" : "指定月份";
+                    string domDesc = dom == "L" ? "最後一天" : $"第 {(dom.Contains(",") ? dom : dom)} 天";
+                    baseDesc = $"{mStr}的 {domDesc} 的 {exactTime}";
+                }
+                else if (dow != "*" && dow != "?" && (dow.Contains("#") || dow.EndsWith("L")))
+                {
+                    string mStr = (parts[4] == "*" || parts[4] == "?") ? "每個月份" : "指定月份";
+                    string seq = "", dowDesc = "";
+                    if (dow.EndsWith("L")) seq = "最後一個";
+                    else if (dow.EndsWith("#1")) seq = "第一個";
+                    else if (dow.EndsWith("#2")) seq = "第二個";
+                    else if (dow.EndsWith("#3")) seq = "第三個";
+                    else if (dow.EndsWith("#4")) seq = "第四個";
+                    
+                    var dowMap = new System.Collections.Generic.Dictionary<string, string> {
+                        {"SUN", "星期日"}, {"MON", "星期一"}, {"TUE", "星期二"}, {"WED", "星期三"},
+                        {"THU", "星期四"}, {"FRI", "星期五"}, {"SAT", "星期六"}
+                    };
+                    string dowPrefix = dow.Substring(0, 3);
+                    if (dowMap.TryGetValue(dowPrefix, out string dStr)) dowDesc = dStr;
+                    
+                    baseDesc = $"{mStr}的 {seq} {dowDesc} 的 {exactTime}";
                 }
                 else 
                 {
@@ -75,9 +97,11 @@ public static class TriggerDescriptionHelper
             }
         }
 
-        if (trigger.RepeatIntervalMinutes.HasValue && trigger.RepeatIntervalMinutes.Value > 0)
+        int repVal = trigger.RepeatInterval ?? trigger.RepeatIntervalMinutes ?? 0;
+        if (repVal > 0)
         {
-            baseDesc += $" - 觸發之後，每 {trigger.RepeatIntervalMinutes.Value} 分鐘便重複一次。";
+            string label = trigger.RepeatIntervalUnit == "Second" ? "秒" : (trigger.RepeatIntervalUnit == "Hour" ? "小時" : "分鐘");
+            baseDesc += $" - 觸發之後，每 {repVal} {label}便重複一次。";
         }
 
         return baseDesc;

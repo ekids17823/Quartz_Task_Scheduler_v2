@@ -9,7 +9,8 @@
       "Scheduler.Ui/1.0.0": {
         "dependencies": {
           "CommunityToolkit.Mvvm": "8.4.1",
-          "Scheduler.Core": "1.0.0"
+          "Scheduler.Core": "1.0.0",
+          "WPF-UI": "4.2.0"
         },
         "runtime": {
           "Scheduler.Ui.dll": {}
@@ -229,6 +230,25 @@
           }
         }
       },
+      "WPF-UI/4.2.0": {
+        "dependencies": {
+          "WPF-UI.Abstractions": "4.2.0"
+        },
+        "runtime": {
+          "lib/net10.0-windows7.0/Wpf.Ui.dll": {
+            "assemblyVersion": "4.2.0.0",
+            "fileVersion": "4.2.0.0"
+          }
+        }
+      },
+      "WPF-UI.Abstractions/4.2.0": {
+        "runtime": {
+          "lib/net10.0/Wpf.Ui.Abstractions.dll": {
+            "assemblyVersion": "4.2.0.0",
+            "fileVersion": "4.2.0.0"
+          }
+        }
+      },
       "Scheduler.Core/1.0.0": {
         "dependencies": {
           "Microsoft.Data.Sqlite": "10.0.5",
@@ -326,6 +346,20 @@
       "sha512": "sha512-Y/0ZkR+r0Cg3DQFuCl1RBnv/tmxpIZRU3HUvelPw6MVaKHwYYR8YNvgs0vuNuXCMvlyJ+Fh88U1D4tah1tt6qw==",
       "path": "sqlitepclraw.provider.e_sqlite3/2.1.11",
       "hashPath": "sqlitepclraw.provider.e_sqlite3.2.1.11.nupkg.sha512"
+    },
+    "WPF-UI/4.2.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-cLJCqIYGtbSU8da9UnPV83SU5XttiM+BEZWW/jLSLjjmBvK2s54oDcO2wP36GEVgiXu5/QXJHlgXk0f14Cvw3g==",
+      "path": "wpf-ui/4.2.0",
+      "hashPath": "wpf-ui.4.2.0.nupkg.sha512"
+    },
+    "WPF-UI.Abstractions/4.2.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-N4/ODw2F7yniiaEO6aEaxFC8aMJDJTGoeNNv3LLXFJs+qY2Flu9fMqFrRfcCFTk4ZKg1+guUB6Y0QKi6AGt88w==",
+      "path": "wpf-ui.abstractions/4.2.0",
+      "hashPath": "wpf-ui.abstractions.4.2.0.nupkg.sha512"
     },
     "Scheduler.Core/1.0.0": {
       "type": "project",

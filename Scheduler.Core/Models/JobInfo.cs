@@ -21,6 +21,8 @@ public class JobInfo
     public bool MisfireActionFireAndProceed { get; set; } = true;
     public string ConcurrencyRule { get; set; } = "Parallel";
     public bool IsHidden { get; set; } = false;
+    public string? LastRunResult { get; set; }
+    public string Author { get; set; } = string.Empty;
 
     // 關聯的多重觸發程序
     public List<TriggerDto> Triggers { get; set; } = new();

@@ -18,8 +18,11 @@ public class TriggerDto
     public DateTimeOffset? EndAt { get; set; }
     
     // 單純迴圈設定
-    public int? RepeatIntervalMinutes { get; set; }
+    public int? RepeatInterval { get; set; }
+    public string? RepeatIntervalUnit { get; set; } // Second, Minute, Hour
+    public int? RepeatIntervalMinutes { get; set; } // Legacy fallback
     public int? RepeatDurationHours { get; set; }
+    public int? WeeklyInterval { get; set; }
     
     // 狀態顯示專用
     public string State { get; set; } = string.Empty;

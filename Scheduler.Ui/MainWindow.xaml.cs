@@ -1,21 +1,24 @@
-using System.Windows;
 using Scheduler.Ui.ViewModels;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
+using System.Windows.Input;
 
-namespace Scheduler.Ui;
-
-public partial class MainWindow : Window
+namespace Scheduler.Ui
 {
-    public MainWindow()
+    public partial class MainWindow : FluentWindow
     {
-        InitializeComponent();
-    }
-
-    private void DataGridRow_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        var vm = DataContext as MainViewModel;
-        if (vm != null && vm.EditJobCommand.CanExecute(null))
+        public MainWindow()
         {
-            vm.EditJobCommand.Execute(null);
+            ApplicationThemeManager.Apply(ApplicationTheme.Light);
+            InitializeComponent();
+        }
+
+        private void DataGridRow_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (DataContext is MainViewModel vm && vm.EditJobCommand.CanExecute(null))
+            {
+                vm.EditJobCommand.Execute(null);
+            }
         }
     }
 }

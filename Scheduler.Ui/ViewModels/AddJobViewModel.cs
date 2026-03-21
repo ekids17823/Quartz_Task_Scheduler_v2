@@ -39,8 +39,8 @@ public class JobLogEntryViewModel
     {
         get
         {
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) return "Launch request ignored, instance already running";
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) return "Action stopped";
+            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) return "啟動要求已遭忽略，因為執行個體已在執行中";
+            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) return "動作已停止";
             return Original.IsSuccess ? "動作已完成" : "動作失敗";
         }
     }
@@ -114,10 +114,13 @@ public partial class AddJobViewModel : ObservableObject
     };
 
     [ObservableProperty]
-    private string _selectedConcurrency = "以平行方式執行新執行個體";
+    private string _selectedConcurrency = "不要啟動新執行個體";
 
     [ObservableProperty]
     private bool _isHidden = false;
+
+    [ObservableProperty]
+    private string _author = string.Empty;
 
     [ObservableProperty]
     private TriggerDto? _selectedTrigger;
@@ -141,6 +144,7 @@ public partial class AddJobViewModel : ObservableObject
             MaxRunTimeSeconds = existingJob.MaxRunTimeSeconds;
             MisfireActionFireAndProceed = existingJob.MisfireActionFireAndProceed;
             IsHidden = existingJob.IsHidden;
+            Author = existingJob.Author;
             
             SelectedConcurrency = existingJob.ConcurrencyRule switch
             {
@@ -160,12 +164,19 @@ public partial class AddJobViewModel : ObservableObject
                     StartAt = t.StartAt,
                     EndAt = t.EndAt,
                     RepeatIntervalMinutes = t.RepeatIntervalMinutes,
+                    RepeatInterval = t.RepeatInterval,
+                    RepeatIntervalUnit = t.RepeatIntervalUnit,
                     RepeatDurationHours = t.RepeatDurationHours,
+                    WeeklyInterval = t.WeeklyInterval,
                     State = t.State
                 });
             }
             
             LoadLogsAsync(existingJob.JobGroup, existingJob.JobName);
+        }
+        else
+        {
+            Author = System.Environment.UserDomainName + "\\" + System.Environment.UserName;
         }
     }
 
@@ -240,6 +251,7 @@ public partial class AddJobViewModel : ObservableObject
             MaxRunTimeSeconds = MaxRunTimeSeconds,
             MisfireActionFireAndProceed = MisfireActionFireAndProceed,
             IsHidden = IsHidden,
+            Author = Author,
             ConcurrencyRule = SelectedConcurrency switch
             {
                 "不要啟動新執行個體" => "DoNotStart",

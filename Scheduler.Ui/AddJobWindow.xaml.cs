@@ -2,18 +2,18 @@ using System.Windows;
 using Scheduler.Core.Models;
 using Scheduler.Ui.Services;
 using Scheduler.Ui.ViewModels;
+using Wpf.Ui.Controls;
+using Wpf.Ui.Appearance;
 
 namespace Scheduler.Ui;
 
-public partial class AddJobWindow : Window
+public partial class AddJobWindow : FluentWindow
 {
-    public AddJobViewModel ViewModel { get; }
-
     public AddJobWindow(JobItemViewModel? existingJob = null)
     {
         InitializeComponent();
-        ViewModel = new AddJobViewModel(existingJob);
-        DataContext = ViewModel;
+        ApplicationThemeManager.Apply(ApplicationTheme.Light);
+        DataContext = new AddJobViewModel(existingJob);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

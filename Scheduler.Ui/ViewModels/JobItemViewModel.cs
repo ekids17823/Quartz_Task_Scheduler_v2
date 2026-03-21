@@ -57,6 +57,15 @@ public partial class JobItemViewModel : ObservableObject
     private bool _isHidden = false;
 
     [ObservableProperty]
+    private string _lastRunResult = "(尚未讀取紀錄)";
+
+    [ObservableProperty]
+    private string _author = string.Empty;
+
+    [ObservableProperty]
+    private DateTimeOffset _creationDate = DateTimeOffset.Now;
+
+    [ObservableProperty]
     private System.Collections.ObjectModel.ObservableCollection<TriggerDto> _triggers = new();
 
     public void UpdateFromInfo(JobInfo info)
@@ -72,6 +81,8 @@ public partial class JobItemViewModel : ObservableObject
         MisfireActionFireAndProceed = info.MisfireActionFireAndProceed;
         ConcurrencyRule = info.ConcurrencyRule;
         IsHidden = info.IsHidden;
+        LastRunResult = info.LastRunResult ?? "(從未執行)";
+        Author = info.Author ?? string.Empty;
 
         Triggers.Clear();
         foreach(var t in info.Triggers)

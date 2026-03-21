@@ -12,8 +12,28 @@ public class SchedulerApiService
     
     public SchedulerApiService()
     {
-        // 預設 ASP.NET Core API dev server 的 URL (從您的啟動日誌中得知為 5196)
-        _httpClient = new HttpClient { BaseAddress = new System.Uri("http://localhost:5196/") };
+        string url = "http://localhost:5196/";
+        var jsonPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+        if (System.IO.File.Exists(jsonPath))
+        {
+            try 
+            {
+                var json = System.IO.File.ReadAllText(jsonPath);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("SchedulerApi", out var apiEl) && apiEl.TryGetProperty("BaseUrl", out var urlEl)) 
+                {
+                    string? parsedUrl = urlEl.GetString();
+                    if (!string.IsNullOrWhiteSpace(parsedUrl)) 
+                    {
+                        url = parsedUrl;
+                        if (!url.EndsWith("/")) url += "/";
+                    }
+                }
+            } 
+            catch { } // fallback to default
+        }
+
+        _httpClient = new HttpClient { BaseAddress = new System.Uri(url) };
     }
 
     public async Task<List<JobInfo>> GetAllJobsAsync()

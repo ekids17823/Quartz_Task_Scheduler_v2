@@ -29,6 +29,26 @@ public class ProcessRunnerJob : IJob
         int? maxRunTimeSeconds = int.TryParse(maxRunTimeSecondsStr, out var v) ? v : null;
 
         var jobKey = context.JobDetail.Key;
+        
+        // WeeklyInterval 跳過機制
+        if (context.Trigger.JobDataMap.ContainsKey("WeeklyInterval"))
+        {
+            if (int.TryParse(context.Trigger.JobDataMap.GetString("WeeklyInterval"), out int wInt) && wInt > 1)
+            {
+                var startDt = context.Trigger.StartTimeUtc.LocalDateTime.Date;
+                var nowDt = DateTimeOffset.UtcNow.LocalDateTime.Date;
+                var startWeekStart = startDt.AddDays(-(int)startDt.DayOfWeek);
+                var currentWeekStart = nowDt.AddDays(-(int)nowDt.DayOfWeek);
+                int weeksPassed = (int)Math.Round((currentWeekStart - startWeekStart).TotalDays / 7.0);
+                
+                if (weeksPassed % wInt != 0)
+                {
+                    _logger.LogInformation("Job {JobKey} skipped this execution because it is an 'off' week (WeeklyInterval = {wInt}).", jobKey, wInt);
+                    return; // 放棄執行
+                }
+            }
+        }
+
         var concurrencyRule = dataMap.ContainsKey("ConcurrencyRule") ? dataMap.GetString("ConcurrencyRule") : "Parallel";
         
         var executingJobs = await context.Scheduler.GetCurrentlyExecutingJobs();
@@ -149,8 +169,8 @@ public class ProcessRunnerJob : IJob
             {
                 await process.WaitForExitAsync(linkedCts.Token);
                 exitCode = process.ExitCode;
-                isSuccess = exitCode == 0;
-                if (!isSuccess) errorMessage = "執行程序結束但傳回非 0 狀態碼。";
+                isSuccess = true;
+                if (exitCode != 0) errorMessage = $"執行程序結束，傳回結束代碼：{process.ExitCode}。";
             }
             catch (TaskCanceledException)
             {
