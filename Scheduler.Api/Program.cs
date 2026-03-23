@@ -49,9 +49,22 @@ using (var connection = new SqliteConnection(connString))
             ExitCode INTEGER,
             StdOut TEXT,
             StdErr TEXT,
-            ErrorMessage TEXT
+            ErrorMessage TEXT,
+            CorrelationId TEXT,
+            EventId INTEGER
         );";
     logCommand.ExecuteNonQuery();
+
+    try
+    {
+        using var alterCmd1 = connection.CreateCommand();
+        alterCmd1.CommandText = "ALTER TABLE JobExecutionLogs ADD COLUMN CorrelationId TEXT;";
+        alterCmd1.ExecuteNonQuery();
+        using var alterCmd2 = connection.CreateCommand();
+        alterCmd2.CommandText = "ALTER TABLE JobExecutionLogs ADD COLUMN EventId INTEGER;";
+        alterCmd2.ExecuteNonQuery();
+    }
+    catch { /* 已經存在的欄位會引發例外，安全忽略 */ }
 }
 
 // 2. 註冊 Quartz

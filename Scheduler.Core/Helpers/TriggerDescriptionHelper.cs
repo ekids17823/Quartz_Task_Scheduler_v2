@@ -101,7 +101,14 @@ public static class TriggerDescriptionHelper
         if (repVal > 0)
         {
             string label = trigger.RepeatIntervalUnit == "Second" ? "秒" : (trigger.RepeatIntervalUnit == "Hour" ? "小時" : "分鐘");
-            baseDesc += $" - 觸發之後，每 {repVal} {label}便重複一次。";
+            baseDesc += $" - 觸發之後，每 {repVal} {label}便重複一次";
+            
+            if (trigger.RepeatDuration.HasValue && trigger.RepeatDuration.Value > 0)
+            {
+                string durLabel = trigger.RepeatDurationUnit == "Minute" ? "分鐘" : (trigger.RepeatDurationUnit == "Hour" ? "小時" : "天");
+                baseDesc += $"，持續 {trigger.RepeatDuration.Value} {durLabel}";
+            }
+            baseDesc += "。";
         }
 
         return baseDesc;

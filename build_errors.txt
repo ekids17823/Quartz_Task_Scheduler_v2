@@ -1,0 +1,14 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Scheduler.Core -> D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\bin\Debug\net8.0\Scheduler.Core.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(175,21): error CS0117: 'TriggerDto' does not contain a definition for 'RepeatDurationHours' [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_ztntxxg4_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(175,45): error CS1061: 'TriggerDto' does not contain a definition for 'RepeatDurationHours' and no accessible extension method 'RepeatDurationHours' accepting a first argument of type 'TriggerDto' could be found (are you missing a using directive or an assembly reference?) [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_ztntxxg4_wpftmp.csproj]
+
+Build FAILED.
+
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(175,21): error CS0117: 'TriggerDto' does not contain a definition for 'RepeatDurationHours' [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_ztntxxg4_wpftmp.csproj]
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\ViewModels\AddJobViewModel.cs(175,45): error CS1061: 'TriggerDto' does not contain a definition for 'RepeatDurationHours' and no accessible extension method 'RepeatDurationHours' accepting a first argument of type 'TriggerDto' could be found (are you missing a using directive or an assembly reference?) [D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\Scheduler.Ui_ztntxxg4_wpftmp.csproj]
+    0 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:01.24

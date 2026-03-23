@@ -10,3 +10,4 @@ D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\refint\Scheduler.Core.dll
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.pdb
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\ref\Scheduler.Core.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Core\obj\Debug\net8.0\Scheduler.Core.sourcelink.json

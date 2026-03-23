@@ -29,18 +29,20 @@ public class JobsController : ControllerBase
         var jobs = new List<JobInfo>();
 
         var lastRunResults = new Dictionary<string, string>();
+        var lastRunTimes = new Dictionary<string, DateTime>();
         try
         {
             using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
             conn.Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT JobGroup, JobName, ExitCode, IsSuccess, ErrorMessage FROM JobExecutionLogs ORDER BY FireTimeUtc DESC";
+            cmd.CommandText = "SELECT JobGroup, JobName, ExitCode, IsSuccess, ErrorMessage, FireTimeUtc FROM JobExecutionLogs ORDER BY FireTimeUtc DESC, Id DESC";
             using var reader = cmd.ExecuteReader();
             while(reader.Read())
             {
                 string key = $"{reader.GetString(0)}::{reader.GetString(1)}";
                 if (!lastRunResults.ContainsKey(key))
                 {
+                    lastRunTimes[key] = reader.GetDateTime(5);
                     bool isSuccess = reader.GetInt32(3) == 1;
                     string? errMsg = reader.IsDBNull(4) ? null : reader.GetString(4);
                     if (isSuccess)
@@ -76,7 +78,7 @@ public class JobsController : ControllerBase
                 FileName = detail.JobDataMap.ContainsKey("FileName") ? detail.JobDataMap.GetString("FileName") : null,
                 Arguments = detail.JobDataMap.ContainsKey("Arguments") ? detail.JobDataMap.GetString("Arguments") : null,
                 WorkingDirectory = detail.JobDataMap.ContainsKey("WorkingDirectory") ? detail.JobDataMap.GetString("WorkingDirectory") : null,
-                Author = detail.JobDataMap.ContainsKey("Author") ? detail.JobDataMap.GetString("Author") : string.Empty
+                Author = detail.JobDataMap.ContainsKey("Author") ? (detail.JobDataMap.GetString("Author") ?? string.Empty) : string.Empty
             };
             
             if (detail.JobDataMap.ContainsKey("MisfireActionFireAndProceed"))
@@ -109,11 +111,47 @@ public class JobsController : ControllerBase
             if (isRunning) jobCompositeState = "執行中";
             else if (isDisabled) jobCompositeState = "已停用";
 
+            DateTime? jobLastRunTime = lastRunTimes.TryGetValue($"{jobKey.Group}::{jobKey.Name}", out var outDt) ? outDt.ToLocalTime() : null;
             bool allPaused = true;
-            foreach (var t in triggers)
+
+            List<TriggerDto> originalTriggers = new();
+            if (detail.JobDataMap.ContainsKey("OriginalTriggers"))
             {
-                var state = await scheduler.GetTriggerState(t.Key);
-                
+                try { originalTriggers = System.Text.Json.JsonSerializer.Deserialize<List<TriggerDto>>(detail.JobDataMap.GetString("OriginalTriggers")!) ?? new(); } catch { }
+            }
+
+            if (originalTriggers.Count > 0)
+            {
+                foreach(var origT in originalTriggers)
+                {
+                    origT.PreviousFireTime = jobLastRunTime;
+                    var liveT = triggers.FirstOrDefault(x => x.Key.Name == origT.TriggerName && x.Key.Group == origT.TriggerGroup);
+                    if (liveT != null)
+                    {
+                        var state = await scheduler.GetTriggerState(liveT.Key);
+                        if (state != TriggerState.Paused) allPaused = false;
+                        origT.State = state switch
+                        {
+                            TriggerState.Normal => "準備就緒", TriggerState.Paused => "已停用", 
+                            TriggerState.Complete => "完成", TriggerState.Error => "發生錯誤",
+                            TriggerState.Blocked => "執行中", TriggerState.None => "準備就緒", _ => state.ToString()
+                        };
+                        origT.NextFireTime = liveT.GetNextFireTimeUtc()?.LocalDateTime;
+                    }
+                    else
+                    {
+                        origT.State = "已完成/過期";
+                        origT.NextFireTime = null;
+                        // origT properties like StartAt/EndAt remain exactly as user configured them
+                    }
+                    jobInfo.Triggers.Add(origT);
+                }
+            }
+            else
+            {
+                foreach (var t in triggers)
+                {
+                    var state = await scheduler.GetTriggerState(t.Key);
                 string tState = state switch
                 {
                     TriggerState.Normal => "準備就緒",
@@ -171,13 +209,14 @@ public class JobsController : ControllerBase
                     StartAt = t.StartTimeUtc,
                     EndAt = t.EndTimeUtc,
                     NextFireTime = t.GetNextFireTimeUtc()?.LocalDateTime,
-                    PreviousFireTime = t.GetPreviousFireTimeUtc()?.LocalDateTime,
+                    PreviousFireTime = jobLastRunTime,
                     RepeatIntervalMinutes = repeatInterval, // legacy format mapped just in case
                     RepeatInterval = repeatInterval,
                     RepeatIntervalUnit = repeatUnit,
                     WeeklyInterval = weeklyInterval,
                     State = tState
                 });
+            }
             }
 
             jobInfo.State = jobCompositeState;
@@ -217,6 +256,7 @@ public class JobsController : ControllerBase
             .UsingJobData("IsDisabled", existingDisabled.ToString())
             .UsingJobData("IsHidden", request.IsHidden.ToString())
             .UsingJobData("Author", request.Author)
+            .UsingJobData("OriginalTriggers", System.Text.Json.JsonSerializer.Serialize(request.Triggers))
             .StoreDurably();
 
         if (request.MaxRunTimeSeconds.HasValue)
@@ -236,7 +276,20 @@ public class JobsController : ControllerBase
                 .WithDescription(tReq.Description);
 
             if (tReq.StartAt.HasValue) tb.StartAt(tReq.StartAt.Value);
-            if (tReq.EndAt.HasValue) tb.EndAt(tReq.EndAt.Value);
+            
+            if (tReq.EndAt.HasValue) 
+            {
+                tb.EndAt(tReq.EndAt.Value);
+            }
+            else if (string.IsNullOrWhiteSpace(tReq.CronExpression) && tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
+            {
+                DateTimeOffset baseStart = tReq.StartAt ?? DateTimeOffset.UtcNow;
+                string durUnit = tReq.RepeatDurationUnit ?? "Minute";
+                var ts = durUnit == "Minute" ? TimeSpan.FromMinutes(tReq.RepeatDuration.Value) :
+                         durUnit == "Hour" ? TimeSpan.FromHours(tReq.RepeatDuration.Value) :
+                         TimeSpan.FromDays(tReq.RepeatDuration.Value);
+                tb.EndAt(baseStart.Add(ts));
+            }
             int repVal = tReq.RepeatInterval ?? tReq.RepeatIntervalMinutes ?? 0;
             string repUnit = string.IsNullOrWhiteSpace(tReq.RepeatIntervalUnit) ? "Minute" : tReq.RepeatIntervalUnit;
             if (repVal > 0)
@@ -266,6 +319,20 @@ public class JobsController : ControllerBase
                             else x.WithIntervalInMinutes(repVal);
                             
                             x.StartingDailyAt(new TimeOfDay(hour, min, sec));
+
+                            if (tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
+                            {
+                                string dUnit = tReq.RepeatDurationUnit ?? "Minute";
+                                var ts = dUnit == "Minute" ? TimeSpan.FromMinutes(tReq.RepeatDuration.Value) :
+                                         dUnit == "Hour" ? TimeSpan.FromHours(tReq.RepeatDuration.Value) :
+                                         TimeSpan.FromDays(tReq.RepeatDuration.Value);
+                                var startDt = DateTime.Today.AddHours(hour).AddMinutes(min).AddSeconds(sec);
+                                var endDt = startDt.Add(ts);
+                                if (endDt.Date > startDt.Date)
+                                    x.EndingDailyAt(new TimeOfDay(23, 59, 59));
+                                else
+                                    x.EndingDailyAt(new TimeOfDay(endDt.Hour, endDt.Minute, endDt.Second));
+                            }
 
                             if (dow != "?" && dow != "*") 
                             {
@@ -412,7 +479,7 @@ public class JobsController : ControllerBase
         using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup ORDER BY FireTimeUtc DESC LIMIT 50";
+        cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup ORDER BY FireTimeUtc DESC, Id DESC LIMIT 50";
         cmd.Parameters.AddWithValue("@JobName", name);
         cmd.Parameters.AddWithValue("@JobGroup", group);
         
@@ -420,6 +487,16 @@ public class JobsController : ControllerBase
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
+            int eventId = reader.FieldCount > 11 && !reader.IsDBNull(11) ? reader.GetInt32(11) : 0;
+            bool isSuccess = reader.GetInt32(5) == 1;
+            string? errMsg = reader.IsDBNull(9) ? null : reader.GetString(9);
+            
+            // 舊版資料安全相容性映射
+            if (eventId == 0)
+            {
+                eventId = isSuccess ? 201 : (errMsg != null && errMsg.Contains("強制中斷") ? 328 : (errMsg != null && errMsg.Contains("並發") ? 322 : 203));
+            }
+            
             logs.Add(new JobLogEntry
             {
                 Id = reader.GetInt32(0),
@@ -427,11 +504,13 @@ public class JobsController : ControllerBase
                 JobGroup = reader.GetString(2),
                 FireTimeUtc = reader.GetDateTime(3),
                 RunTimeMs = reader.GetInt64(4),
-                IsSuccess = reader.GetInt32(5) == 1,
+                IsSuccess = isSuccess,
                 ExitCode = reader.IsDBNull(6) ? null : reader.GetInt32(6),
                 StdOut = reader.IsDBNull(7) ? null : reader.GetString(7),
                 StdErr = reader.IsDBNull(8) ? null : reader.GetString(8),
-                ErrorMessage = reader.IsDBNull(9) ? null : reader.GetString(9)
+                ErrorMessage = errMsg,
+                CorrelationId = reader.FieldCount > 10 && !reader.IsDBNull(10) ? reader.GetString(10) : string.Empty,
+                EventId = eventId
             });
         }
         return Ok(logs);

@@ -57,10 +57,19 @@ public partial class EditTriggerViewModel : ObservableObject
     private bool _isRepeating;
 
     [ObservableProperty]
-    private int _repeatInterval = 60;
+    private int _repeatInterval = 1;
     
     [ObservableProperty]
-    private int _repeatIntervalUnitIndex = 1; // 0=秒, 1=分鐘, 2=小時
+    private int _repeatIntervalUnitIndex = 0; // 0=分鐘, 1=小時
+
+    [ObservableProperty]
+    private bool _hasRepeatDuration;
+
+    [ObservableProperty]
+    private int _repeatDuration = 1;
+
+    [ObservableProperty]
+    private int _repeatDurationUnitIndex = 1; // 0=分鐘, 1=小時, 2=天
 
     [ObservableProperty]
     private string _cronExpression = string.Empty;
@@ -191,10 +200,17 @@ public partial class EditTriggerViewModel : ObservableObject
             if (repVal > 0)
             {
                 IsRepeating = true;
-                RepeatInterval = repVal;
-                if (existing.RepeatIntervalUnit == "Second") RepeatIntervalUnitIndex = 0;
-                else if (existing.RepeatIntervalUnit == "Hour") RepeatIntervalUnitIndex = 2;
-                else RepeatIntervalUnitIndex = 1;
+                RepeatInterval = Math.Max(1, repVal);
+                if (existing.RepeatIntervalUnit == "Hour") RepeatIntervalUnitIndex = 1;
+                else RepeatIntervalUnitIndex = 0;
+            }
+            if (existing.RepeatDuration.HasValue && existing.RepeatDuration.Value > 0)
+            {
+                HasRepeatDuration = true;
+                RepeatDuration = Math.Max(1, existing.RepeatDuration.Value);
+                if (existing.RepeatDurationUnit == "Minute") RepeatDurationUnitIndex = 0;
+                else if (existing.RepeatDurationUnit == "Hour") RepeatDurationUnitIndex = 1;
+                else RepeatDurationUnitIndex = 2;
             }
             
             CronExpression = existing.CronExpression ?? string.Empty;
@@ -371,8 +387,10 @@ public partial class EditTriggerViewModel : ObservableObject
             TriggerGroup = _original.TriggerGroup,
             StartAt = start,
             EndAt = end,
-            RepeatInterval = IsRepeating ? RepeatInterval : null,
-            RepeatIntervalUnit = IsRepeating ? (RepeatIntervalUnitIndex == 0 ? "Second" : (RepeatIntervalUnitIndex == 2 ? "Hour" : "Minute")) : null,
+            RepeatInterval = IsRepeating ? Math.Max(1, RepeatInterval) : null,
+            RepeatIntervalUnit = IsRepeating ? (RepeatIntervalUnitIndex == 0 ? "Minute" : "Hour") : null,
+            RepeatDuration = HasRepeatDuration ? Math.Max(1, RepeatDuration) : null,
+            RepeatDurationUnit = HasRepeatDuration ? (RepeatDurationUnitIndex == 0 ? "Minute" : (RepeatDurationUnitIndex == 1 ? "Hour" : "Day")) : null,
             WeeklyInterval = IsWeekly && WeeklyInterval > 1 ? WeeklyInterval : null,
             CronExpression = string.IsNullOrWhiteSpace(finalCron) ? null : finalCron.Trim(),
             State = _original.State

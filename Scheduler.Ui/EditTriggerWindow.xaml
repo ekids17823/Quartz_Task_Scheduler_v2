@@ -182,9 +182,18 @@
                     <CheckBox Content="重複工作每隔(P): " IsChecked="{Binding IsRepeating}" VerticalAlignment="Center" Width="180"/>
                     <TextBox Text="{Binding RepeatInterval, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsRepeating}" Width="50" Margin="0,0,5,0"/>
                     <ComboBox SelectedIndex="{Binding RepeatIntervalUnitIndex}" IsEnabled="{Binding IsRepeating}" Width="80">
-                        <ComboBoxItem Content="秒"/>
                         <ComboBoxItem Content="分鐘"/>
                         <ComboBoxItem Content="小時"/>
+                    </ComboBox>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <CheckBox Content="持續時間(D): " IsChecked="{Binding HasRepeatDuration}" IsEnabled="{Binding IsRepeating}" VerticalAlignment="Center" Width="180" Margin="20,0,0,0"/>
+                    <TextBox Text="{Binding RepeatDuration, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding HasRepeatDuration}" Width="50" Margin="0,0,5,0"/>
+                    <ComboBox SelectedIndex="{Binding RepeatDurationUnitIndex}" IsEnabled="{Binding HasRepeatDuration}" Width="80">
+                        <ComboBoxItem Content="分鐘"/>
+                        <ComboBoxItem Content="小時"/>
+                        <ComboBoxItem Content="天"/>
                     </ComboBox>
                 </StackPanel>
             </StackPanel>

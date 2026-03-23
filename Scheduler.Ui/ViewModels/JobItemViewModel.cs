@@ -84,10 +84,30 @@ public partial class JobItemViewModel : ObservableObject
         LastRunResult = info.LastRunResult ?? "(從未執行)";
         Author = info.Author ?? string.Empty;
 
-        Triggers.Clear();
-        foreach(var t in info.Triggers)
+        // 避免每 2.5 秒無條件觸發 CollectionChanged 造成 UI 點擊中斷與重新綁定 (Flicker)
+        bool isTriggersChanged = Triggers.Count != info.Triggers.Count;
+        if (!isTriggersChanged)
         {
-            Triggers.Add(t);
+            for(int i = 0; i < Triggers.Count; i++)
+            {
+                if (Triggers[i].TriggerName != info.Triggers[i].TriggerName ||
+                    Triggers[i].NextFireTime != info.Triggers[i].NextFireTime ||
+                    Triggers[i].CronExpression != info.Triggers[i].CronExpression ||
+                    Triggers[i].RepeatInterval != info.Triggers[i].RepeatInterval)
+                {
+                    isTriggersChanged = true;
+                    break;
+                }
+            }
+        }
+
+        if (isTriggersChanged)
+        {
+            Triggers.Clear();
+            foreach(var t in info.Triggers)
+            {
+                Triggers.Add(t);
+            }
         }
 
         var firstTrigger = System.Linq.Enumerable.FirstOrDefault(Triggers);

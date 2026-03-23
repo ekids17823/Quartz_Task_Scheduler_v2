@@ -2,14 +2,14 @@
 
 專為取代 Windows 內建「工作排程器」而量身打造的現代化排程管理系統。本專案採用前後端分離 (Client-Server) 的架構，結合了 Quartz.NET 強大的背景作業引擎、高效的 ASP.NET Core REST API，以及原生流暢的 Windows 11 Fluent Design (WPF-UI) 使用者介面。
 
-## 🌟 核心特色
+## 🌟 核心特色 (與 v2 最新升級)
 
 本系統在還原絕大部分 Windows 工作排程器日常體驗的同時，針對維運痛點提供了強大的擴充與改良功能：
 
 * **原生 Fluent 現代化美學**：採用最新 WPF-UI 框架建置，完整支援 Windows 11 Mica 半透明材質、圓角視窗及動態深色主題，提供前所未有的視覺體驗。
-* **API 與 UI 分離架構**：背景排程引擎獨立為 ASP.NET Web API 伺服器，UI 客戶端透過 REST API 與其對接。不僅可以實現在地管理，更完美支援 **遠端管理** 及 **跨伺服器部署**。
-* **毫秒級細緻的重複間隔**：有別於原生系統的受限選項，本系統支援精確到「秒、分鐘、小時」的極高彈性重複執行間隔設定 (Repeat Interval)。
-* **完整的生命週期與歷程庫**：內建專屬的 `JobExecutionLogs` SQLite 分支表，每次作業成功與否、執行耗時、結束代碼 (ExitCode) 甚至是例外錯誤，都會被永久紀錄並轉譯為熟悉的繁體中文狀態（如「成功執行 (0)」或「被忽略」等）。
+* **API 與 UI 分離架構**：背景排程引擎獨立為 ASP.NET Web API 伺服器，UI 客戶端透過 REST API 與其對接。不僅可以實現在地管理，更完美支援 **遠端管理** 及 **跨伺服器部署**。為了因應企業嚴格的內網環境，連線層已全面**解除系統預設 Proxy 綁定**，確保暢通無阻。
+* **進階的重複間隔與持續時間**：不僅支援精確到「分鐘、小時」的彈性重複執行間隔，現在更完美實裝了媲美原生系統的**「持續時間 (Duration)」**！系統會自動幫您精準換算每週/每日的當班時段，安全下達停止指令而不會跨日干擾。
+* **永世留存的歷史快照與不鏽紀錄**：打破底層排程引擎會將「過期/僅一次」排程從資料庫抹除的限制，本系統會動態攔截並將排程的**原始 JSON 參數快照**永久封裝進資料庫中；同時由實體日誌庫強力接管「上次執行時間」指針，未來無論如何修改排程設定，歷史軌跡與物理發動時間永遠忠實保留！
 * **無痛可攜式自動部署**：程式啟動時會自動偵測並生成所需的 Quartz 引擎與紀錄 SQLite 資料表，發佈資料夾可直接隨身帶著走，免安裝龐大資料庫。
 
 ## 🛠️ 技術堆疊 (Tech Stack)
@@ -22,7 +22,7 @@
 * **關鍵功能**: 透過 `JobDataMap` 進行依賴注入、狀態保持，以及 `IJob` (ProcessRunnerJob) 的自訂非同步啟動 (ShellExecute) 與超時管理邏輯。
 
 ### 前端使用者介面 (Scheduler.Ui)
-* **核心框架**: .NET 10.0 WPF (Windows Presentation Foundation)
+* **核心框架**: .NET 8.0 WPF (Windows Presentation Foundation)
 * **UI 函式庫**: [WPF-UI](https://wpfui.lepo.co/) 4.2.0 (負責 Fluent Design 元件流暢渲染)
 * **架構模式**: MVVM (Model-View-ViewModel)，使用 [CommunityToolkit.Mvvm](https://learn.microsoft.com/zh-tw/dotnet/communitytoolkit/mvvm/) 進行資料繫結與命令控制。
 * **通訊協定**: `HttpClient` 封裝 Json REST API 請求 (`SchedulerApiService`)

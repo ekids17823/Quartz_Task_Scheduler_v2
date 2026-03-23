@@ -33,7 +33,8 @@ public class SchedulerApiService
             catch { } // fallback to default
         }
 
-        _httpClient = new HttpClient { BaseAddress = new System.Uri(url) };
+        var handler = new HttpClientHandler { UseProxy = false };
+        _httpClient = new HttpClient(handler) { BaseAddress = new System.Uri(url) };
     }
 
     public async Task<List<JobInfo>> GetAllJobsAsync()

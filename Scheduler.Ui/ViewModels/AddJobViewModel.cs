@@ -14,57 +14,63 @@ public class JobLogEntryViewModel
     public JobLogEntry Original { get; }
     public JobLogEntryViewModel(JobLogEntry entry) => Original = entry;
 
+    public string CorrelationId => Original.CorrelationId;
+
     public string LevelIcon 
     {
-        get
+        get => Original.EventId switch
         {
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) return "⚠️ 警告";
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) return "⚠️ 警告";
-            return Original.IsSuccess ? "ℹ️ 資訊" : "❌ 錯誤";
-        }
+            107 or 129 or 100 or 200 or 201 => "ℹ️ 資訊",
+            322 or 328 => "⚠️ 警告",
+            _ => "❌ 錯誤"
+        };
     }
-    public string FireTime => Original.FireTimeUtc.ToLocalTime().ToString("yyyy/M/d tt hh:mm:ss");
     
-    public string EventId
-    {
-        get
-        {
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) return "322";
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) return "328";
-            return Original.IsSuccess ? "201" : "203";
-        }
-    }
+    public string FireTime => Original.FireTimeUtc.ToLocalTime().ToString("yyyy/M/d tt hh:mm:ss");
+    public string EventId => Original.EventId.ToString();
 
     public string Category
     {
-        get
+        get => Original.EventId switch
         {
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) return "啟動要求已遭忽略，因為執行個體已在執行中";
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) return "動作已停止";
-            return Original.IsSuccess ? "動作已完成" : "動作失敗";
-        }
+            107 => "排程器已觸發工作",
+            129 => "已建立工作處理程序",
+            100 => "工作已開始",
+            200 => "動作已經啟動",
+            201 => "動作已完成",
+            322 => "啟動要求已遭忽略，因為執行個體已在執行中",
+            328 => "動作已停止",
+            _ => "動作失敗"
+        };
     }
 
     public string OpCode
     {
-        get
+        get => Original.EventId switch
         {
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) return "資訊";
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) return "資訊";
-            return Original.IsSuccess ? "(2)" : "(1)";
-        }
+            107 or 129 or 200 or 322 or 328 => "資訊",
+            100 => "(1)",
+            201 => "(2)",
+            _ => "(1)"
+        };
     }
 
     public string Description 
     {
         get
         {
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("因並發規則")) 
+            if (Original.EventId == 322) 
                 return $"工作排程器並未啟動工作 \"{Original.JobName}\"，因為相同工作的執行個體已在執行中。";
-            if (Original.ErrorMessage != null && Original.ErrorMessage.Contains("強制中斷")) 
+            if (Original.EventId == 328) 
                 return $"工作排程器已強迫停止工作 \"{Original.JobName}\"，因為收到外部中止要求。";
+            if (Original.EventId == 107) return $"工作排程器已針對工作 \"{Original.JobName}\" 收到要求啟動的訊號。";
+            if (Original.EventId == 129) return $"工作排程器已為工作 \"{Original.JobName}\" 建立執行個體處理程序。";
+            if (Original.EventId == 100) return $"工作排程器已啟動工作 \"{Original.JobName}\" 的執行個體。";
+            if (Original.EventId == 200) return $"工作排程器動作已在工作 \"{Original.JobName}\" 中啟動。";
             
-            string baseDesc = Original.IsSuccess ? $"工作排程器已成功完成工作 \"{Original.JobName}\"，結束代碼：{Original.ExitCode}。" : $"工作排程器未能順利完成工作 \"{Original.JobName}\"，因為執行緒或子程序回報失敗。這可能是因為找不到檔案、參數錯誤，或程式提早閃退。\n錯誤訊息：{Original.ErrorMessage}";
+            string baseDesc = Original.EventId == 201 
+                ? $"工作排程器已成功完成工作 \"{Original.JobName}\"，結束代碼：{Original.ExitCode}。" 
+                : $"工作排程器未能順利完成工作 \"{Original.JobName}\"，因為執行緒或子程序回報失敗。這可能是因為找不到檔案、參數錯誤，或程式提早閃退。\n錯誤訊息：{Original.ErrorMessage}";
 
             return baseDesc + $"\n詳細耗時：{Original.RunTimeMs} 毫秒。";
         }
@@ -166,7 +172,8 @@ public partial class AddJobViewModel : ObservableObject
                     RepeatIntervalMinutes = t.RepeatIntervalMinutes,
                     RepeatInterval = t.RepeatInterval,
                     RepeatIntervalUnit = t.RepeatIntervalUnit,
-                    RepeatDurationHours = t.RepeatDurationHours,
+                    RepeatDuration = t.RepeatDuration,
+                    RepeatDurationUnit = t.RepeatDurationUnit,
                     WeeklyInterval = t.WeeklyInterval,
                     State = t.State
                 });

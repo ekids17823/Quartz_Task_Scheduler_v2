@@ -21,7 +21,8 @@ public class TriggerDto
     public int? RepeatInterval { get; set; }
     public string? RepeatIntervalUnit { get; set; } // Second, Minute, Hour
     public int? RepeatIntervalMinutes { get; set; } // Legacy fallback
-    public int? RepeatDurationHours { get; set; }
+    public int? RepeatDuration { get; set; }
+    public string? RepeatDurationUnit { get; set; }
     public int? WeeklyInterval { get; set; }
     
     // 狀態顯示專用

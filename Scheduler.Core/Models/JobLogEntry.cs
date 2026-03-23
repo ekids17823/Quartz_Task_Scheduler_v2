@@ -14,4 +14,6 @@ public class JobLogEntry
     public string? StdOut { get; set; }
     public string? StdErr { get; set; }
     public string? ErrorMessage { get; set; }
+    public string CorrelationId { get; set; } = string.Empty;
+    public int EventId { get; set; }
 }

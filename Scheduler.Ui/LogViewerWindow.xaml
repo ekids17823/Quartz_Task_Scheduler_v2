@@ -28,8 +28,22 @@
         
         <DataGrid Grid.Row="1" x:Name="LogsGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
                   RowHeight="26" GridLinesVisibility="Horizontal" HeadersVisibility="Column" BorderThickness="0" Background="Transparent">
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                </Style>
+            </DataGrid.CellStyle>
+            <DataGrid.Resources>
+                <Style x:Key="CellTextStyle" TargetType="TextBlock">
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                    <Setter Property="HorizontalAlignment" Value="Left"/>
+                    <Setter Property="Margin" Value="10,0,10,0"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="Transparent" />
                     <Style.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Background" Value="#E3F2FD" />
@@ -38,10 +52,12 @@
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="等級" Binding="{Binding LevelIcon}" Width="80"/>
-                <DataGridTextColumn Header="日期和時間" Binding="{Binding FireTime}" Width="190"/>
-                <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="100"/>
-                <DataGridTextColumn Header="工作類別" Binding="{Binding Category}" Width="280"/>
+                <DataGridTextColumn Header="等級" Binding="{Binding LevelIcon}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="日期和時間" Binding="{Binding FireTime}" Width="190" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="60" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="工作類別" Binding="{Binding Category}" Width="320" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="操作代碼" Binding="{Binding OpCode}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="相互關聯識別碼" Binding="{Binding CorrelationId}" Width="140" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
             </DataGrid.Columns>
         </DataGrid>
 

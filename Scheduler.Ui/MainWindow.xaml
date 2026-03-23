@@ -61,8 +61,16 @@
                           RowHeight="35" FontSize="14"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0" Background="Transparent">
                     
+                    <DataGrid.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                    </DataGrid.CellStyle>
+
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="Transparent" />
                             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                             <Setter Property="ContextMenu">
                                 <Setter.Value>
@@ -89,17 +97,24 @@
                             </Style.Triggers>
                         </Style>
                     </DataGrid.RowStyle>
+                    <DataGrid.Resources>
+                        <Style x:Key="CellTextStyle" TargetType="TextBlock">
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="HorizontalAlignment" Value="Left"/>
+                            <Setter Property="Margin" Value="10,0,10,0"/>
+                        </Style>
+                    </DataGrid.Resources>
                     
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="名稱" Binding="{Binding JobName}" Width="150"/>
-                        <DataGridTextColumn Header="狀態" Binding="{Binding State}" Width="80"/>
-                        <DataGridTextColumn Header="觸發程序" Binding="{Binding TriggerDescription}" Width="350"/>
-                        <DataGridTextColumn Header="下次執行時間" Binding="{Binding NextFireTime, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}, TargetNullValue='無'}" Width="180"/>
-                        <DataGridTextColumn Header="上次執行時間" Binding="{Binding PreviousFireTime, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}, TargetNullValue='無'}" Width="180"/>
-                        <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunResult}" Width="200" />
-                        <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="200" />
-                        <DataGridTextColumn Header="建立日期" Binding="{Binding CreationDate, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}}" Width="180" />
-                        <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="200"/>
+                        <DataGridTextColumn Header="名稱" Binding="{Binding JobName}" Width="150" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="狀態" Binding="{Binding State}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="觸發程序" Binding="{Binding TriggerDescription}" Width="350" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="下次執行時間" Binding="{Binding NextFireTime, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}, TargetNullValue='無'}" Width="180" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="上次執行時間" Binding="{Binding PreviousFireTime, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}, TargetNullValue='無'}" Width="180" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunResult}" Width="200" ElementStyle="{StaticResource CellTextStyle}" />
+                        <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="200" ElementStyle="{StaticResource CellTextStyle}" />
+                        <DataGridTextColumn Header="建立日期" Binding="{Binding CreationDate, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}}" Width="180" ElementStyle="{StaticResource CellTextStyle}" />
+                        <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="200" ElementStyle="{StaticResource CellTextStyle}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>
