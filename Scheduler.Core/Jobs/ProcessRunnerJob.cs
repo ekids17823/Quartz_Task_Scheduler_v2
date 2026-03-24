@@ -31,8 +31,10 @@ public class ProcessRunnerJob : IJob
 
         var jobKey = context.JobDetail.Key;
         
-        // [107] 排程器已觸發工作
-        SaveLog(107, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, 0, true, null, null, null, null);
+        bool isManual = context.MergedJobDataMap.ContainsKey("TriggerReason") && context.MergedJobDataMap.GetString("TriggerReason") == "Manual";
+        int triggerEventId = isManual ? 110 : 107;
+        
+        SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, 0, true, null, null, null, null);
         
         // WeeklyInterval 跳過機制
         if (context.Trigger.JobDataMap.ContainsKey("WeeklyInterval"))

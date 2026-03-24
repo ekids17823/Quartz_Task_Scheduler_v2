@@ -54,10 +54,10 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="等級" Binding="{Binding LevelIcon}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
                 <DataGridTextColumn Header="日期和時間" Binding="{Binding FireTime}" Width="190" ElementStyle="{StaticResource CellTextStyle}"/>
-                <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="60" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="90" ElementStyle="{StaticResource CellTextStyle}"/>
                 <DataGridTextColumn Header="工作類別" Binding="{Binding Category}" Width="320" ElementStyle="{StaticResource CellTextStyle}"/>
                 <DataGridTextColumn Header="操作代碼" Binding="{Binding OpCode}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
-                <DataGridTextColumn Header="相互關聯識別碼" Binding="{Binding CorrelationId}" Width="140" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="相互關聯識別碼" Binding="{Binding CorrelationId}" Width="*" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
             </DataGrid.Columns>
         </DataGrid>
 

@@ -175,7 +175,7 @@ class Program
                 if (concurrencyRule == "DoNothing")
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("被忽略 (因為上一輪的程序仍在執行中)");
+                    Console.WriteLine("依並發規則略過 (因為上一輪的程序仍在執行中)");
                     Console.ResetColor();
                     ignoredCount++;
                     continue; // 直接放棄這次排程，什麼都不做
@@ -216,7 +216,7 @@ class Program
         Console.WriteLine($"時間推進： {simulateDays} 天");
         Console.WriteLine($"觸發信號： 總共 {fireTimes.Count} 次");
         Console.WriteLine($"真實發動： {executedCount} 次");
-        Console.WriteLine($"忽略阻擋： {ignoredCount} 次\n");
+        Console.WriteLine($"略過阻擋： {ignoredCount} 次\n");
         Console.WriteLine("[小提示] 若想測試不同情境，請回到 Program.cs 修改最上方的參數設定區。\n");
     }
 }

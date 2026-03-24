@@ -114,7 +114,7 @@
                         <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunResult}" Width="200" ElementStyle="{StaticResource CellTextStyle}" />
                         <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="200" ElementStyle="{StaticResource CellTextStyle}" />
                         <DataGridTextColumn Header="建立日期" Binding="{Binding CreationDate, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}}" Width="180" ElementStyle="{StaticResource CellTextStyle}" />
-                        <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="200" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="描述" Binding="{Binding DisplayDescription}" Width="*" ElementStyle="{StaticResource CellTextStyle}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>

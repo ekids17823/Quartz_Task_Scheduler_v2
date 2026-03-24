@@ -13,7 +13,10 @@ public partial class JobItemViewModel : ObservableObject
     private string _jobGroup = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayDescription))]
     private string? _description;
+
+    public string? DisplayDescription => string.IsNullOrWhiteSpace(Description) ? Description : Description.Replace("\r", "").Replace("\n", " ");
 
     [ObservableProperty]
     private DateTime? _nextFireTime;

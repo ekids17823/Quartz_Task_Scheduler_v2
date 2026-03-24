@@ -52,7 +52,7 @@ public class JobsController : ControllerBase
                     }
                     else
                     {
-                        if (errMsg != null && errMsg.Contains("並發")) lastRunResults[key] = "被忽略";
+                        if (errMsg != null && errMsg.Contains("並發")) lastRunResults[key] = "依並發規則略過";
                         else if (errMsg != null && errMsg.Contains("中斷")) lastRunResults[key] = "已終止";
                         else lastRunResults[key] = "執行失敗";
                     }
@@ -413,7 +413,7 @@ public class JobsController : ControllerBase
         var scheduler = await _schedulerFactory.GetScheduler();
         var jobKey = new JobKey(name, group);
         if (!await scheduler.CheckExists(jobKey)) return NotFound("找不到指定的排程。");
-        await scheduler.TriggerJob(jobKey);
+        await scheduler.TriggerJob(jobKey, new global::Quartz.JobDataMap { { "TriggerReason", "Manual" } });
         return Ok(new { Message = "已觸發。" });
     }
 

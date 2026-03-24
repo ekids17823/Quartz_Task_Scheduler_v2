@@ -20,7 +20,7 @@ public class JobLogEntryViewModel
     {
         get => Original.EventId switch
         {
-            107 or 129 or 100 or 200 or 201 => "ℹ️ 資訊",
+            107 or 129 or 100 or 200 or 201 or 110 => "ℹ️ 資訊",
             322 or 328 => "⚠️ 警告",
             _ => "❌ 錯誤"
         };
@@ -33,6 +33,7 @@ public class JobLogEntryViewModel
     {
         get => Original.EventId switch
         {
+            110 => "使用者已經觸發工作",
             107 => "排程器已觸發工作",
             129 => "已建立工作處理程序",
             100 => "工作已開始",
@@ -48,7 +49,7 @@ public class JobLogEntryViewModel
     {
         get => Original.EventId switch
         {
-            107 or 129 or 200 or 322 or 328 => "資訊",
+            107 or 129 or 200 or 322 or 328 or 110 => "資訊",
             100 => "(1)",
             201 => "(2)",
             _ => "(1)"
@@ -63,6 +64,7 @@ public class JobLogEntryViewModel
                 return $"工作排程器並未啟動工作 \"{Original.JobName}\"，因為相同工作的執行個體已在執行中。";
             if (Original.EventId == 328) 
                 return $"工作排程器已強迫停止工作 \"{Original.JobName}\"，因為收到外部中止要求。";
+            if (Original.EventId == 110) return $"使用者已經手動要求啟動工作 \"{Original.JobName}\"。";
             if (Original.EventId == 107) return $"工作排程器已針對工作 \"{Original.JobName}\" 收到要求啟動的訊號。";
             if (Original.EventId == 129) return $"工作排程器已為工作 \"{Original.JobName}\" 建立執行個體處理程序。";
             if (Original.EventId == 100) return $"工作排程器已啟動工作 \"{Original.JobName}\" 的執行個體。";
@@ -107,10 +109,16 @@ public partial class AddJobViewModel : ObservableObject
     private string _workingDirectory = string.Empty;
 
     [ObservableProperty]
-    private int? _maxRunTimeSeconds;
+    private bool _hasMaxRunTime;
 
     [ObservableProperty]
-    private bool _misfireActionFireAndProceed = true;
+    private int _maxRunTimeValue = 1;
+
+    [ObservableProperty]
+    private int _maxRunTimeUnitIndex = 1; // 0=分鐘, 1=小時, 2=天
+
+    [ObservableProperty]
+    private bool _misfireActionFireAndProceed = false;
 
     public ObservableCollection<string> ConcurrencyOptions { get; } = new()
     {
@@ -147,7 +155,14 @@ public partial class AddJobViewModel : ObservableObject
             FileName = existingJob.FileName ?? string.Empty;
             Arguments = existingJob.Arguments ?? string.Empty;
             WorkingDirectory = existingJob.WorkingDirectory ?? string.Empty;
-            MaxRunTimeSeconds = existingJob.MaxRunTimeSeconds;
+            if (existingJob.MaxRunTimeSeconds.HasValue)
+            {
+                HasMaxRunTime = true;
+                int secs = existingJob.MaxRunTimeSeconds.Value;
+                if (secs >= 86400 && secs % 86400 == 0) { MaxRunTimeValue = secs / 86400; MaxRunTimeUnitIndex = 2; }
+                else if (secs >= 3600 && secs % 3600 == 0) { MaxRunTimeValue = secs / 3600; MaxRunTimeUnitIndex = 1; }
+                else { MaxRunTimeValue = System.Math.Max(1, secs / 60); MaxRunTimeUnitIndex = 0; }
+            }
             MisfireActionFireAndProceed = existingJob.MisfireActionFireAndProceed;
             IsHidden = existingJob.IsHidden;
             Author = existingJob.Author;
@@ -255,7 +270,7 @@ public partial class AddJobViewModel : ObservableObject
             FileName = FileName,
             Arguments = Arguments,
             WorkingDirectory = WorkingDirectory,
-            MaxRunTimeSeconds = MaxRunTimeSeconds,
+            MaxRunTimeSeconds = HasMaxRunTime ? System.Math.Max(1, MaxRunTimeValue) * (MaxRunTimeUnitIndex == 0 ? 60 : (MaxRunTimeUnitIndex == 1 ? 3600 : 86400)) : null,
             MisfireActionFireAndProceed = MisfireActionFireAndProceed,
             IsHidden = IsHidden,
             Author = Author,

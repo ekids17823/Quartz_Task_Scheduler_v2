@@ -87,7 +87,16 @@
                 <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Margin="0,10,0,0" Padding="20">
                     <StackPanel>
                     <TextBlock Text="指定影響工作行為的其他設定。" Margin="0,0,0,15"/>
-                    <CheckBox Content="在錯過排定的啟動後盡快執行工作(S)" IsChecked="{Binding MisfireActionFireAndProceed}" Margin="0,0,0,15" FontSize="14"/>
+                    <CheckBox Content="在錯過指定的啟動後盡快執行工作(S)" IsChecked="{Binding MisfireActionFireAndProceed}" Margin="0,0,0,15" FontSize="14"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                        <CheckBox Content="如果工作執行時間大於以下值即停止(K): " IsChecked="{Binding HasMaxRunTime}" VerticalAlignment="Center" Margin="0,0,10,0" FontSize="14"/>
+                        <TextBox Text="{Binding MaxRunTimeValue, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding HasMaxRunTime}" Width="50" Margin="0,0,10,0"/>
+                        <ComboBox SelectedIndex="{Binding MaxRunTimeUnitIndex}" IsEnabled="{Binding HasMaxRunTime}" Width="80">
+                            <ComboBoxItem Content="分鐘"/>
+                            <ComboBoxItem Content="小時"/>
+                            <ComboBoxItem Content="天"/>
+                        </ComboBox>
+                    </StackPanel>
                     
                     <TextBlock Text="如果工作已經在執行中，下列規則將會套用(N):" Margin="0,10,0,5" FontSize="14"/>
                     <ComboBox ItemsSource="{Binding ConcurrencyOptions}" SelectedItem="{Binding SelectedConcurrency}" Width="250" HorizontalAlignment="Left" Margin="0,0,0,15" FontSize="14"/>
@@ -139,10 +148,10 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="等級" Binding="{Binding LevelIcon}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
                             <DataGridTextColumn Header="日期和時間" Binding="{Binding FireTime}" Width="190" ElementStyle="{StaticResource CellTextStyle}"/>
-                            <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="60" ElementStyle="{StaticResource CellTextStyle}"/>
+                            <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="90" ElementStyle="{StaticResource CellTextStyle}"/>
                             <DataGridTextColumn Header="工作類別" Binding="{Binding Category}" Width="320" ElementStyle="{StaticResource CellTextStyle}"/>
                             <DataGridTextColumn Header="操作代碼" Binding="{Binding OpCode}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
-                            <DataGridTextColumn Header="相互關聯識別碼" Binding="{Binding CorrelationId}" Width="140" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
+                            <DataGridTextColumn Header="相互關聯識別碼" Binding="{Binding CorrelationId}" Width="*" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
                         </DataGrid.Columns>
                     </DataGrid>
 
