@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:Scheduler.Ui.Controls"
-        Title="新增/編輯觸發程序" Height="550" Width="750"
+        Title="新增/編輯觸發程序" Height="620" Width="750"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica" WindowCornerPreference="Round">
 
@@ -46,7 +46,9 @@
                 
                 <!-- 左側：單選按鈕 -->
                 <StackPanel Grid.Column="0" Margin="10">
-                    <RadioButton Content="僅一次(N)" IsChecked="{Binding IsOneTime}" Margin="0,5,0,15" FontSize="14" FontWeight="SemiBold"/>
+                    <TextBlock Text="開始工作(G):" Margin="0,0,0,10" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    <RadioButton Content="僅一次(N)" IsChecked="{Binding IsOneTime}" Margin="0,0,0,15" FontSize="14"/>
+                    <RadioButton Content="定期循環(I)" IsChecked="{Binding IsInterval}" Margin="0,0,0,15" FontSize="14"/>
                     <RadioButton Content="每天(D)" IsChecked="{Binding IsDaily}" Margin="0,0,0,15" FontSize="14"/>
                     <RadioButton Content="每週(W)" IsChecked="{Binding IsWeekly}" Margin="0,0,0,15" FontSize="14"/>
                     <RadioButton Content="每月(M)" IsChecked="{Binding IsMonthly}" Margin="0,0,0,15" FontSize="14"/>
@@ -66,6 +68,19 @@
                     
                     <Grid>
                         <!-- 僅一次面板(保留空白) -->
+                        
+                        <!-- 定期循環面板 -->
+                        <StackPanel Visibility="{Binding IsInterval, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal" Height="45" Margin="0,0,0,0">
+                                <TextBlock Text="每隔(C): " VerticalAlignment="Center" Width="60"/>
+                                <TextBox Text="{Binding IntervalValue}" Width="50" Margin="0,0,10,0"/>
+                                <ComboBox SelectedIndex="{Binding IntervalUnitIndex}" Width="80">
+                                    <ComboBoxItem Content="分鐘"/>
+                                    <ComboBoxItem Content="小時"/>
+                                    <ComboBoxItem Content="天"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
                         
                         <!-- 每天 UI -->
                         <StackPanel Visibility="{Binding IsDaily, Converter={StaticResource BoolToVis}}">
@@ -175,7 +190,7 @@
         </GroupBox>
 
         <!-- 進階設定區塊 -->
-        <GroupBox Grid.Row="2" Header="進階設定" Padding="10">
+        <GroupBox Grid.Row="2" Header="進階設定" Padding="10" IsEnabled="{Binding IsNotInterval}">
             <StackPanel>
                 <!-- 每隔多久重複 -->
                 <StackPanel Orientation="Horizontal" Margin="0,5,0,10">

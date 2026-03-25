@@ -26,9 +26,13 @@ public partial class MainViewModel : ObservableObject
 
     private readonly DispatcherTimer _refreshTimer;
 
+    [ObservableProperty]
+    private string _apiHostName = string.Empty;
+
     public MainViewModel()
     {
         _apiService = new SchedulerApiService();
+        ApiHostName = _apiService.BaseUrl;
         _ = LoadJobsAsync();
 
         // 建立背景自動刷新機制

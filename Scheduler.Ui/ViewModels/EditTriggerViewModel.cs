@@ -75,7 +75,21 @@ public partial class EditTriggerViewModel : ObservableObject
     private string _cronExpression = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotInterval))]
     private bool _isOneTime = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotInterval))]
+    private bool _isInterval;
+
+    public bool IsNotInterval => !IsInterval;
+
+    [ObservableProperty]
+    private int _intervalValue = 5;
+
+    [ObservableProperty]
+    private int _intervalUnitIndex = 0; // 0=分鐘, 1=小時, 2=天
+
     [ObservableProperty]
     private bool _isDaily;
     [ObservableProperty]
@@ -222,7 +236,18 @@ public partial class EditTriggerViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(cron))
         {
-            IsOneTime = true;
+            if (IsRepeating)
+            {
+                IsInterval = true;
+                IsOneTime = false;
+                IntervalValue = RepeatInterval;
+                IntervalUnitIndex = RepeatIntervalUnitIndex;
+            }
+            else
+            {
+                IsOneTime = true;
+                IsInterval = false;
+            }
             return;
         }
 
@@ -381,6 +406,24 @@ public partial class EditTriggerViewModel : ObservableObject
 
         var finalCron = GenerateCron();
 
+        if (IsInterval)
+        {
+            return new TriggerDto
+            {
+                TriggerName = _original.TriggerName,
+                TriggerGroup = _original.TriggerGroup,
+                StartAt = start,
+                EndAt = end,
+                RepeatInterval = IntervalValue,
+                RepeatIntervalUnit = IntervalUnitIndex == 0 ? "Minute" : (IntervalUnitIndex == 1 ? "Hour" : "Day"),
+                RepeatDuration = null,
+                RepeatDurationUnit = null,
+                WeeklyInterval = null,
+                CronExpression = null,
+                State = _original.State
+            };
+        }
+
         return new TriggerDto
         {
             TriggerName = _original.TriggerName,
@@ -388,7 +431,7 @@ public partial class EditTriggerViewModel : ObservableObject
             StartAt = start,
             EndAt = end,
             RepeatInterval = IsRepeating ? Math.Max(1, RepeatInterval) : null,
-            RepeatIntervalUnit = IsRepeating ? (RepeatIntervalUnitIndex == 0 ? "Minute" : "Hour") : null,
+            RepeatIntervalUnit = IsRepeating ? (RepeatIntervalUnitIndex == 0 ? "Minute" : (RepeatIntervalUnitIndex == 1 ? "Hour" : "Day")) : null,
             RepeatDuration = HasRepeatDuration ? Math.Max(1, RepeatDuration) : null,
             RepeatDurationUnit = HasRepeatDuration ? (RepeatDurationUnitIndex == 0 ? "Minute" : (RepeatDurationUnitIndex == 1 ? "Hour" : "Day")) : null,
             WeeklyInterval = IsWeekly && WeeklyInterval > 1 ? WeeklyInterval : null,

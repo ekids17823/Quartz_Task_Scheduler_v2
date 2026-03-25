@@ -15,7 +15,10 @@ public static class TriggerDescriptionHelper
 
         if (string.IsNullOrWhiteSpace(trigger.CronExpression))
         {
-            baseDesc = $"於 {start} {time} 執行一次";
+            if (trigger.RepeatInterval.HasValue && trigger.RepeatInterval.Value > 0)
+                baseDesc = $"從 {start} {time} 啟動循環";
+            else
+                baseDesc = $"於 {start} {time} 執行一次";
         }
         else
         {

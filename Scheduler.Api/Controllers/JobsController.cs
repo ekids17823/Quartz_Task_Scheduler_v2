@@ -479,7 +479,7 @@ public class JobsController : ControllerBase
         using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup ORDER BY FireTimeUtc DESC, Id DESC LIMIT 50";
+        cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup AND FireTimeUtc >= datetime('now', '-7 days') ORDER BY FireTimeUtc DESC, Id DESC LIMIT 500";
         cmd.Parameters.AddWithValue("@JobName", name);
         cmd.Parameters.AddWithValue("@JobGroup", group);
         

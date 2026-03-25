@@ -9,6 +9,7 @@ namespace Scheduler.Ui.Services;
 public class SchedulerApiService
 {
     private readonly HttpClient _httpClient;
+    public string BaseUrl => _httpClient.BaseAddress?.ToString() ?? "Unknown";
     
     public SchedulerApiService()
     {
