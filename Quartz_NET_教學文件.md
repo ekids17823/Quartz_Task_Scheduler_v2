@@ -449,7 +449,8 @@ var trigger = TriggerBuilder.Create()
     })
     .Build();
 
-// 執行一次
+// 執行一次 (或定期循環 無縫 24/7 跨日執行)
+// UI 上的「定期循環(I)」即是呼叫 .RepeatForever() 而不帶結束時間，達成真正的全天候掛機
 var onceOnly = TriggerBuilder.Create()
     .WithSimpleSchedule(x => x.WithRepeatCount(0))
     .Build();
@@ -486,8 +487,9 @@ var trigger = TriggerBuilder.Create()
  *   → 轉換為 DailyTimeIntervalSchedule
  *   → 因為 DailyTimeIntervalTrigger 可以同時設定「起始時間」和「重複間隔」
  *
- * 情境3：純重複間隔（沒有特定時間，單純每N分鐘）
- *   → 使用 SimpleSchedule
+ * 情境3：純重複間隔（沒有特定時間或沒有持續時間，單純每N分鐘）
+ *   → 為了避免 DailyTimeIntervalSchedule 的營業時間 (跨夜斷線) 限制
+ *   → 系統自動智能降級為 SimpleSchedule.RepeatForever()，達成完美的 24/7 全天候無縫循環
  *
  * 情境4：單次執行
  *   → 使用 SimpleSchedule + RepeatCount(0)
@@ -870,7 +872,9 @@ private void SaveLog(int eventId, string correlation, string name, string group,
 }
 ```
 
-### 查詢最後執行結果
+### 查詢執行結果與效能優化
+
+本系統在 API 層 `/logs` 端點實作了強制過濾器，為保護前端記憶體與傳輸頻寬，**一律只回傳最近 7 天內的紀錄（上限 500 筆）**。
 
 ```csharp
 // 從日誌中取得每個 Job 的最後執行結果
@@ -1100,7 +1104,8 @@ if (context.Trigger.JobDataMap.ContainsKey("WeeklyInterval"))
 
 | 條件 | 輸出 |
 |------|------|
-| 無 CronExpression | `僅一次` |
+| 無 CronExpression, 但 RepeatInterval > 0 | `從 [設定時間] 啟動循環` (代表 SimpleTrigger 定期循環) |
+| 無 CronExpression, 且無重複間隔 | `於 [設定時間] 執行一次` |
 | DOM 欄位為 `1/*` 或 `*/?` | `每天` |
 | DOW 欄位有指定星期 | `每週` |
 | DOM 欄位為 `1` | `每月` |
