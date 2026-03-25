@@ -18,6 +18,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private JobItemViewModel? _selectedJob;
 
+    [ObservableProperty]
+    private bool _isConnected = false;
+
+    [ObservableProperty]
+    private string _apiStatusText = "連線中...";
+
     private readonly DispatcherTimer _refreshTimer;
 
     public MainViewModel()
@@ -40,6 +46,9 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var jobs = await _apiService.GetAllJobsAsync();
+
+            IsConnected = true;
+            ApiStatusText = "已連線";
             
             // 移除被刪除的排程
             var toRemove = Jobs.Where(old => !jobs.Any(n => n.JobName == old.JobName && n.JobGroup == old.JobGroup)).ToList();
@@ -63,6 +72,8 @@ public partial class MainViewModel : ObservableObject
         }
         catch
         {
+            IsConnected = false;
+            ApiStatusText = "未連線";
             // 背景刷新失敗 (API沒開) 不必嚴重報錯
         }
     }

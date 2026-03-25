@@ -39,14 +39,7 @@ public class SchedulerApiService
 
     public async Task<List<JobInfo>> GetAllJobsAsync()
     {
-        try 
-        {
-            return await _httpClient.GetFromJsonAsync<List<JobInfo>>("api/jobs") ?? new List<JobInfo>();
-        } 
-        catch 
-        { 
-            return new List<JobInfo>(); 
-        }
+        return await _httpClient.GetFromJsonAsync<List<JobInfo>>("api/jobs") ?? new List<JobInfo>();
     }
 
     public async Task CreateJobAsync(ScheduleRequest request)

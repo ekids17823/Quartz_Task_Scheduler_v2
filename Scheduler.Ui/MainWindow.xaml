@@ -15,6 +15,10 @@
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="ConnectedDotStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Setter.Value" Value="10"/>
+        </Style>
     </ui:FluentWindow.Resources>
 
     <Grid VerticalAlignment="Stretch">
@@ -35,10 +39,43 @@
             </Grid.RowDefinitions>
 
             <!-- Page Header -->
-            <StackPanel Grid.Row="0" Margin="0,0,0,20">
-                <ui:TextBlock FontTypography="Title" Text="排程總覽" Margin="0,0,0,5"/>
-                <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="檢視並管理系統中所有的在地與預定背景任務。"/>
-            </StackPanel>
+            <Grid Grid.Row="0" Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <ui:TextBlock FontTypography="Title" Text="排程總覽" Margin="0,0,0,5"/>
+                    <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="檢視並管理系統中所有的在地與預定背景任務。"/>
+                </StackPanel>
+                <!-- API 連線狀態燈號 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
+                    <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,6,0">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="#EF5350"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Fill" Value="#66BB6A"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding ApiStatusText}" VerticalAlignment="Center" FontSize="13">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#EF5350"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Foreground" Value="#66BB6A"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
 
             <!-- ToolBar -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,15">
