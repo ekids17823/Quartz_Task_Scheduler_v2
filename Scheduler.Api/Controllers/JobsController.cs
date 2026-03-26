@@ -107,7 +107,7 @@ public class JobsController : ControllerBase
                 isDisabled = d;
             }
 
-            var jobCompositeState = "準備就緒";
+            var jobCompositeState = "就緒";
             if (isRunning) jobCompositeState = "執行中";
             else if (isDisabled) jobCompositeState = "已停用";
 
@@ -132,9 +132,9 @@ public class JobsController : ControllerBase
                         if (state != TriggerState.Paused) allPaused = false;
                         origT.State = state switch
                         {
-                            TriggerState.Normal => "準備就緒", TriggerState.Paused => "已停用", 
+                            TriggerState.Normal => "就緒", TriggerState.Paused => "已停用", 
                             TriggerState.Complete => "完成", TriggerState.Error => "發生錯誤",
-                            TriggerState.Blocked => "執行中", TriggerState.None => "準備就緒", _ => state.ToString()
+                            TriggerState.Blocked => "執行中", TriggerState.None => "就緒", _ => state.ToString()
                         };
                         origT.NextFireTime = liveT.GetNextFireTimeUtc()?.LocalDateTime;
                     }
@@ -154,12 +154,12 @@ public class JobsController : ControllerBase
                     var state = await scheduler.GetTriggerState(t.Key);
                 string tState = state switch
                 {
-                    TriggerState.Normal => "準備就緒",
+                    TriggerState.Normal => "就緒",
                     TriggerState.Paused => "已停用",
                     TriggerState.Complete => "完成",
                     TriggerState.Error => "發生錯誤",
                     TriggerState.Blocked => "執行中",
-                    TriggerState.None => "準備就緒",
+                    TriggerState.None => "就緒",
                     _ => state.ToString()
                 };
 
@@ -479,7 +479,7 @@ public class JobsController : ControllerBase
         using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup AND FireTimeUtc >= datetime('now', '-7 days') ORDER BY FireTimeUtc DESC, Id DESC LIMIT 500";
+        cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup AND FireTimeUtc >= datetime('now', '-7 days') ORDER BY FireTimeUtc DESC, Id DESC LIMIT 2000";
         cmd.Parameters.AddWithValue("@JobName", name);
         cmd.Parameters.AddWithValue("@JobGroup", group);
         

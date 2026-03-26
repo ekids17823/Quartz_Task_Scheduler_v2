@@ -119,7 +119,12 @@ public static class TriggerDescriptionHelper
 
     public static string GetTriggerType(TriggerDto trigger)
     {
-        if (string.IsNullOrWhiteSpace(trigger.CronExpression)) return "僅一次";
+        if (string.IsNullOrWhiteSpace(trigger.CronExpression))
+        {
+            int repVal = trigger.RepeatInterval ?? trigger.RepeatIntervalMinutes ?? 0;
+            if (repVal > 0) return "定期循環";
+            return "僅一次";
+        }
         var parts = trigger.CronExpression.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length >= 6) {
             var dom = parts[3]; var dow = parts[5];
