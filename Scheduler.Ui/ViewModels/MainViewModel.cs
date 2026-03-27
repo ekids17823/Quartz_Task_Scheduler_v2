@@ -115,6 +115,9 @@ public partial class MainViewModel : ObservableObject
     private async Task EndJobAsync()
     {
         if (SelectedJob == null) return;
+        var r = System.Windows.MessageBox.Show($"您確定要強制結束正在執行的排程「{SelectedJob.JobName}」嗎？這會傳送中斷訊號給程序。", "確認結束", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+        if (r != System.Windows.MessageBoxResult.Yes) return;
+        
         await _apiService.InterruptJobAsync(SelectedJob.JobGroup, SelectedJob.JobName);
         await LoadJobsAsync();
     }
@@ -139,6 +142,9 @@ public partial class MainViewModel : ObservableObject
     private async Task DeleteJobAsync()
     {
         if (SelectedJob == null) return;
+        var r = System.Windows.MessageBox.Show($"您確定要徹底刪除排程「{SelectedJob.JobName}」嗎？這個動作無法復原。", "確認刪除", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
+        if (r != System.Windows.MessageBoxResult.Yes) return;
+        
         await _apiService.DeleteJobAsync(SelectedJob.JobGroup, SelectedJob.JobName);
         await LoadJobsAsync();
     }
@@ -148,6 +154,13 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedJob == null) return;
         var window = new LogViewerWindow(SelectedJob.JobGroup, SelectedJob.JobName);
+        window.ShowDialog();
+    }
+
+    [RelayCommand]
+    private void ViewSystemLogs()
+    {
+        var window = new SystemLogViewerWindow();
         window.ShowDialog();
     }
 }

@@ -112,7 +112,6 @@ public class JobsController : ControllerBase
             else if (isDisabled) jobCompositeState = "已停用";
 
             DateTime? jobLastRunTime = lastRunTimes.TryGetValue($"{jobKey.Group}::{jobKey.Name}", out var outDt) ? outDt.ToLocalTime() : null;
-            bool allPaused = true;
 
             List<TriggerDto> originalTriggers = new();
             if (detail.JobDataMap.ContainsKey("OriginalTriggers"))
@@ -129,7 +128,6 @@ public class JobsController : ControllerBase
                     if (liveT != null)
                     {
                         var state = await scheduler.GetTriggerState(liveT.Key);
-                        if (state != TriggerState.Paused) allPaused = false;
                         origT.State = state switch
                         {
                             TriggerState.Normal => "就緒", TriggerState.Paused => "已停用", 
@@ -234,9 +232,11 @@ public class JobsController : ControllerBase
         var scheduler = await _schedulerFactory.GetScheduler();
         var jobKey = new JobKey(request.JobName, request.JobGroup);
 
+        bool isUpdate = false;
         bool existingDisabled = false;
         if (await scheduler.CheckExists(jobKey))
         {
+            isUpdate = true;
             var oldDetail = await scheduler.GetJobDetail(jobKey);
             if (oldDetail != null && oldDetail.JobDataMap.ContainsKey("IsDisabled"))
             {
@@ -404,6 +404,8 @@ public class JobsController : ControllerBase
              await scheduler.ScheduleJob(job, triggersToSchedule, replace: true);
         }
 
+        SaveAuditLog(isUpdate ? 140 : 106, request.JobName, request.JobGroup, isUpdate ? "更新了排程任務的設定與觸發條件。" : "建立了新的排程任務。");
+
         return Ok(new { Message = "排程建立或更新成功" });
     }
 
@@ -434,6 +436,7 @@ public class JobsController : ControllerBase
         var jobKey = new JobKey(name, group);
         if (!await scheduler.CheckExists(jobKey)) return NotFound();
         await scheduler.DeleteJob(jobKey);
+        SaveAuditLog(141, name, group, "刪除了排程任務。");
         return Ok(new { Message = "排程刪除成功" });
     }
 
@@ -452,6 +455,7 @@ public class JobsController : ControllerBase
         }
 
         await scheduler.PauseJob(jobKey);
+        SaveAuditLog(142, name, group, "停用了排程任務。");
         return Ok(new { Message = "排程已暫停" });
     }
 
@@ -470,6 +474,7 @@ public class JobsController : ControllerBase
         }
 
         await scheduler.ResumeJob(jobKey);
+        SaveAuditLog(143, name, group, "啟用了排程任務。");
         return Ok(new { Message = "排程已恢復" });
     }
 
@@ -514,5 +519,51 @@ public class JobsController : ControllerBase
             });
         }
         return Ok(logs);
+    }
+
+    [HttpGet("auditlogs")]
+    public IActionResult GetAuditLogs()
+    {
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Id, EventId, EventTimeUtc, JobName, JobGroup, Description, AccountName FROM AuditLogs ORDER BY EventTimeUtc DESC, Id DESC LIMIT 1000";
+        var logs = new List<AuditLogEntry>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            logs.Add(new AuditLogEntry
+            {
+                Id = reader.GetInt32(0),
+                EventId = reader.GetInt32(1),
+                EventTimeUtc = reader.GetDateTime(2),
+                JobName = reader.GetString(3),
+                JobGroup = reader.GetString(4),
+                Description = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                AccountName = reader.IsDBNull(6) ? string.Empty : reader.GetString(6)
+            });
+        }
+        return Ok(logs);
+    }
+
+    private void SaveAuditLog(int eventId, string jobName, string jobGroup, string description)
+    {
+        try
+        {
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=quartz.db;");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO AuditLogs (EventId, EventTimeUtc, JobName, JobGroup, Description, AccountName) 
+                VALUES (@EventId, @EventTimeUtc, @JobName, @JobGroup, @Description, @AccountName)";
+            cmd.Parameters.AddWithValue("@EventId", eventId);
+            cmd.Parameters.AddWithValue("@EventTimeUtc", DateTime.UtcNow);
+            cmd.Parameters.AddWithValue("@JobName", jobName);
+            cmd.Parameters.AddWithValue("@JobGroup", jobGroup);
+            cmd.Parameters.AddWithValue("@Description", description);
+            cmd.Parameters.AddWithValue("@AccountName", Environment.UserDomainName + "\\" + Environment.UserName);
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
     }
 }

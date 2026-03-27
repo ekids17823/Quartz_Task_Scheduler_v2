@@ -34,7 +34,7 @@ public class ProcessRunnerJob : IJob
         bool isManual = context.MergedJobDataMap.ContainsKey("TriggerReason") && context.MergedJobDataMap.GetString("TriggerReason") == "Manual";
         int triggerEventId = isManual ? 110 : 107;
         
-        SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, 0, true, null, null, null, null);
+        SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, true, null, null, null, null);
         
         // WeeklyInterval 跳過機制
         if (context.Trigger.JobDataMap.ContainsKey("WeeklyInterval"))
@@ -65,7 +65,7 @@ public class ProcessRunnerJob : IJob
             if (concurrencyRule == "DoNotStart")
             {
                 _logger.LogInformation("Job {JobKey} aborted because another instance is running (Rule: DoNotStart).", jobKey);
-                SaveLog(322, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
+                SaveLog(322, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
                 return;
             }
             else if (concurrencyRule == "StopExisting")
@@ -81,6 +81,7 @@ public class ProcessRunnerJob : IJob
         var stopwatch = Stopwatch.StartNew();
         bool isSuccess = false;
         int? exitCode = null;
+        int? finalEventIdOverride = null;
         var stdOutBuilder = new StringBuilder();
         var stdErrBuilder = new StringBuilder();
         string? errorMessage = null;
@@ -89,12 +90,12 @@ public class ProcessRunnerJob : IJob
         {
             errorMessage = "執行緒失敗: 未提供 FileName";
             _logger.LogError(errorMessage);
-            SaveLog(203, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
+            SaveLog(203, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
             return;
         }
 
         // [129] 已建立工作處理程序
-        SaveLog(129, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+        SaveLog(129, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
 
         _logger.LogInformation("執行緒 [{JobKey}] 開始啟動程序: {FileName} {Arguments}", jobKey, fileName, arguments);
 
@@ -124,6 +125,23 @@ public class ProcessRunnerJob : IJob
                 processStartInfo.CreateNoWindow = true;
                 processStartInfo.RedirectStandardOutput = true;
                 processStartInfo.RedirectStandardError = true;
+                
+                // 解決中文 Windows 環境下呼叫 ping, ipconfig 等傳統 cmd 命令產生亂碼的問題
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                try 
+                {
+                    // 嘗試取得系統當前的 OEM CodePage (繁中通常為 950/Big5)
+                    int codePage = System.Globalization.CultureInfo.CurrentCulture.TextInfo.OEMCodePage;
+                    var encoding = Encoding.GetEncoding(codePage > 0 ? codePage : 950);
+                    processStartInfo.StandardOutputEncoding = encoding;
+                    processStartInfo.StandardErrorEncoding = encoding;
+                } 
+                catch 
+                {
+                    // 萬一找不到對應的編碼就退回 UTF-8
+                    processStartInfo.StandardOutputEncoding = Encoding.UTF8;
+                    processStartInfo.StandardErrorEncoding = Encoding.UTF8;
+                }
             }
             else
             {
@@ -160,9 +178,9 @@ public class ProcessRunnerJob : IJob
             process.Start();
             
             // [100] 工作已開始
-            SaveLog(100, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+            SaveLog(100, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
             // [200] 動作已經啟動
-            SaveLog(200, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+            SaveLog(200, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
             if (isHidden)
             {
                 process.BeginOutputReadLine();
@@ -189,7 +207,7 @@ public class ProcessRunnerJob : IJob
             {
                 if (cts.IsCancellationRequested)
                 {
-                    errorMessage = $"執行時間超過上限 {maxRunTimeSeconds} 秒！觸發強制中止。";
+                    errorMessage = $"執行時間超過上限 {maxRunTimeSeconds} 秒！觸發強制中斷。";
                     _logger.LogWarning("[{JobKey}] {Msg}", jobKey, errorMessage);
                 }
                 else
@@ -198,6 +216,8 @@ public class ProcessRunnerJob : IJob
                     _logger.LogWarning("[{JobKey}] {Msg}", jobKey, errorMessage);
                 }
                 
+                isSuccess = true; // 將主動的超時中止事件視為一種成功完成但不正常的狀態
+                finalEventIdOverride = 328;
                 try { process.Kill(true); } catch { } 
                 await Task.Delay(100); // 讓執行緒死透、串流關閉
             }
@@ -216,8 +236,8 @@ public class ProcessRunnerJob : IJob
         finally
         {
             stopwatch.Stop();
-            int finalEventId = isSuccess ? 201 : (errorMessage != null && errorMessage.Contains("強制中斷") ? 328 : 203);
-            SaveLog(finalEventId, correlationId, jobKey.Name, jobKey.Group, context.FireTimeUtc.UtcDateTime, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
+            int finalEventId = finalEventIdOverride ?? (isSuccess ? 201 : (errorMessage != null && errorMessage.Contains("強制中斷") ? 328 : 203));
+            SaveLog(finalEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
         }
     }
 

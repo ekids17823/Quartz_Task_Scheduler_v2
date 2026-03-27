@@ -1,8 +1,8 @@
-<ui:FluentWindow x:Class="Scheduler.Ui.LogViewerWindow"
+<ui:FluentWindow x:Class="Scheduler.Ui.SystemLogViewerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-        Title="排程執行紀錄" Height="600" Width="900"
+        Title="系統管理與稽核紀錄" Height="600" Width="1100"
         WindowStartupLocation="CenterOwner" Loaded="Window_Loaded"
         ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica" WindowCornerPreference="Round">
     <Grid>
@@ -11,7 +11,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="排程執行紀錄" />
+        <ui:TitleBar Grid.Row="0" Title="系統管理與稽核紀錄" />
         
         <Grid Grid.Row="1" Margin="20,0,20,20">
         <Grid.RowDefinitions>
@@ -52,26 +52,20 @@
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="等級" Binding="{Binding LevelIcon}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
-                <DataGridTextColumn Header="日期和時間" Binding="{Binding EventTime}" Width="190" ElementStyle="{StaticResource CellTextStyle}"/>
-                <DataGridTextColumn Header="事件識別碼" Binding="{Binding EventId}" Width="90" ElementStyle="{StaticResource CellTextStyle}"/>
-                <DataGridTextColumn Header="工作類別" Binding="{Binding Category}" Width="320" ElementStyle="{StaticResource CellTextStyle}"/>
-                <DataGridTextColumn Header="相互關聯識別碼" Binding="{Binding CorrelationId}" Width="*" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="類型" Binding="{Binding LevelIcon}" Width="120" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="觸發時間" Binding="{Binding EventTime}" Width="190" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="事件 ID" Binding="{Binding Original.EventId}" Width="90" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="操作分類" Binding="{Binding Category}" Width="220" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="影響目標 (群組.名稱)" Binding="{Binding Target}" Width="280" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="操作人員" Binding="{Binding Original.AccountName}" Width="*" Foreground="Gray" ElementStyle="{StaticResource CellTextStyle}"/>
             </DataGrid.Columns>
         </DataGrid>
 
         <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="#E0E0E0" Margin="0,5"/>
 
-        <GroupBox Grid.Row="3" Header="{Binding SelectedItem.EventId, ElementName=LogsGrid, StringFormat='事件 \{0\}，TaskScheduler', TargetNullValue='(未選取事件)'}">
+        <GroupBox Grid.Row="3" Header="{Binding SelectedItem.Original.EventId, ElementName=LogsGrid, StringFormat='事件 \{0\} 詳細資訊', TargetNullValue='(未選取事件)'}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="5">
-                <StackPanel>
-                    <TextBlock Text="{Binding SelectedItem.Description, ElementName=LogsGrid}" TextWrapping="Wrap" Margin="10,10,10,20" FontSize="14"/>
-                    
-                    <StackPanel Visibility="{Binding SelectedItem.ErrorMessageVisibility, ElementName=LogsGrid, FallbackValue=Collapsed}">
-                        <TextBlock Text="[詳細系統日誌 / 原生錯誤內容]" Foreground="Gray" FontWeight="Bold" Margin="10,0,10,5"/>
-                        <TextBlock Text="{Binding SelectedItem.Original.ErrorMessage, ElementName=LogsGrid}" TextWrapping="Wrap" Margin="10,0,10,10" FontFamily="Consolas" Foreground="DarkRed"/>
-                    </StackPanel>
-                </StackPanel>
+                <TextBlock Text="{Binding SelectedItem.Original.Description, ElementName=LogsGrid}" TextWrapping="Wrap" Margin="10,10,10,20" FontSize="14"/>
             </ScrollViewer>
         </GroupBox>
         </Grid>

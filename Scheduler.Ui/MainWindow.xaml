@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vm="clr-namespace:Scheduler.Ui.ViewModels"
-        Title="Quartz Task Scheduler v2" Height="768" Width="1400"
+        Title="Quartz Task Scheduler" Height="768" Width="1400"
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True" WindowState="Maximized"
         WindowBackdropType="Mica"
@@ -28,7 +28,7 @@
         </Grid.RowDefinitions>
 
         <!-- The TitleBar -->
-        <ui:TitleBar Grid.Row="0" Title="Quartz Task Scheduler v2" Icon="pack://application:,,,/app_icon.ico" />
+        <ui:TitleBar Grid.Row="0" Title="Quartz Task Scheduler" Icon="pack://application:,,,/app_icon.ico" />
 
         <!-- Main Layout -->
         <Grid Grid.Row="1" Margin="20,0,20,20" VerticalAlignment="Stretch">
@@ -46,7 +46,6 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <ui:TextBlock FontTypography="Title" Text="排程總覽" Margin="0,0,0,5"/>
-                    <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="檢視並管理系統中所有的在地與預定背景任務。"/>
                 </StackPanel>
                 <!-- API 連線狀態燈號 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0">
@@ -88,7 +87,8 @@
                 <ui:Button Icon="{ui:SymbolIcon Pause24}" Content="停用" Command="{Binding DisableJobCommand}" Margin="0,0,10,0"/>
                 <ui:Button Icon="{ui:SymbolIcon PlayCircle24}" Content="啟用" Command="{Binding EnableJobCommand}" Margin="0,0,10,0"/>
                 <ui:Button Icon="{ui:SymbolIcon Settings24}" Content="內容" Command="{Binding EditJobCommand}" Margin="0,0,10,0"/>
-                <ui:Button Appearance="Danger" Icon="{ui:SymbolIcon Delete24}" Content="刪除" Command="{Binding DeleteJobCommand}" />
+                <ui:Button Appearance="Secondary" Icon="{ui:SymbolIcon History24}" Content="檢視管理記錄" Command="{Binding ViewSystemLogsCommand}" Margin="0,0,10,0"/>
+                <ui:Button Appearance="Danger" Icon="{ui:SymbolIcon Delete24}" Content="刪除" Command="{Binding DeleteJobCommand}" Margin="0,0,10,0"/>
             </StackPanel>
 
             <!-- Grid Content -->

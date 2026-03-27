@@ -26,7 +26,8 @@ public class JobLogEntryViewModel
         };
     }
     
-    public string FireTime => Original.FireTimeUtc.ToLocalTime().ToString("yyyy/M/d tt hh:mm:ss");
+    public string EventTime => Original.FireTimeUtc.ToLocalTime().ToString("yyyy/M/d tt hh:mm:ss");
+    public string Duration => Original.RunTimeMs >= 1000 ? $"{Original.RunTimeMs / 1000.0:0.##} 秒" : $"{Original.RunTimeMs} 毫秒";
     public string EventId => Original.EventId.ToString();
 
     public string Category
@@ -71,10 +72,10 @@ public class JobLogEntryViewModel
             if (Original.EventId == 200) return $"工作排程器動作已在工作 \"{Original.JobName}\" 中啟動。";
             
             string baseDesc = Original.EventId == 201 
-                ? $"工作排程器已成功完成工作 \"{Original.JobName}\"，結束代碼：{Original.ExitCode}。" 
-                : $"工作排程器未能順利完成工作 \"{Original.JobName}\"，因為執行緒或子程序回報失敗。這可能是因為找不到檔案、參數錯誤，或程式提早閃退。\n錯誤訊息：{Original.ErrorMessage}";
+                ? $"工作排程器於 {EventTime} 已成功完成工作 \"{Original.JobName}\"，結束代碼：{Original.ExitCode}。" 
+                : $"工作排程器於 {EventTime} 未能順利完成工作 \"{Original.JobName}\"，因為執行緒或子程序回報失敗。這可能是因為找不到檔案、參數錯誤，或程式提早閃退。\n錯誤訊息：{Original.ErrorMessage}";
 
-            return baseDesc + $"\n詳細耗時：{Original.RunTimeMs} 毫秒。";
+            return baseDesc + $"\n執行耗時：{Duration}。";
         }
     }
 
@@ -87,11 +88,15 @@ public partial class AddJobViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCreationMode))]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
     private bool _isEditMode;
     public bool IsCreationMode => !IsEditMode;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
     private string _jobName = string.Empty;
+
+    public string WindowTitle => IsCreationMode ? "建立新排程" : $"{JobName} 內容";
 
     [ObservableProperty]
     private string _jobGroup = "預設群組";
@@ -260,6 +265,20 @@ public partial class AddJobViewModel : ObservableObject
         {
             MessageBox.Show("執行檔路徑為必填欄位。");
             return;
+        }
+
+        if (IsCreationMode)
+        {
+            try
+            {
+                var existingJobs = await _apiService.GetAllJobsAsync();
+                if (existingJobs.Any(j => j.JobName == JobName && j.JobGroup == JobGroup))
+                {
+                    MessageBox.Show($"排程「{JobName}」已存在於群組「{JobGroup}」中，請更換名稱或群組以避免覆蓋！", "名稱重複", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+            catch { }
         }
 
         var request = new ScheduleRequest

@@ -90,4 +90,16 @@ public class SchedulerApiService
             return new List<JobLogEntry>(); 
         }
     }
+
+    public async Task<List<AuditLogEntry>> GetAuditLogsAsync()
+    {
+        try 
+        {
+            return await _httpClient.GetFromJsonAsync<List<AuditLogEntry>>("api/jobs/auditlogs") ?? new List<AuditLogEntry>();
+        } 
+        catch 
+        { 
+            return new List<AuditLogEntry>(); 
+        }
+    }
 }

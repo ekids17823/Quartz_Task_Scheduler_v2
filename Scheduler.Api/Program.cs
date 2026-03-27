@@ -65,6 +65,20 @@ using (var connection = new SqliteConnection(connString))
         alterCmd2.ExecuteNonQuery();
     }
     catch { /* 已經存在的欄位會引發例外，安全忽略 */ }
+
+    // 建立稽核與管理紀錄專用的 AuditLogs
+    using var auditCmd = connection.CreateCommand();
+    auditCmd.CommandText = @"
+        CREATE TABLE IF NOT EXISTS AuditLogs (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            EventId INTEGER NOT NULL,
+            EventTimeUtc DATETIME NOT NULL,
+            JobName TEXT NOT NULL,
+            JobGroup TEXT NOT NULL,
+            Description TEXT,
+            AccountName TEXT
+        );";
+    auditCmd.ExecuteNonQuery();
 }
 
 // 2. 註冊 Quartz

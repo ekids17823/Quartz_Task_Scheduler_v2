@@ -68,3 +68,5 @@ D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net8.0-wi
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net8.0-windows\Scheduler.Ui.pdb
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net8.0-windows\Scheduler.Ui.genruntimeconfig.cache
 D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net8.0-windows\ref\Scheduler.Ui.dll
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net8.0-windows\SystemLogViewerWindow.baml
+D:\NUK\Program\VS code\Quartz_Task_Scheduler_v2\Scheduler.Ui\obj\Debug\net8.0-windows\SystemLogViewerWindow.g.cs
