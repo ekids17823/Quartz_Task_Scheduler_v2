@@ -212,7 +212,7 @@ public class ProcessRunnerJob : IJob
                 }
                 else
                 {
-                    errorMessage = "已因新排程觸發且設定為『停止現有的執行個體』而被外部強制中斷。";
+                    errorMessage = "已被外部強制中斷（可能是使用者手動結束或並發規則觸發）。";
                     _logger.LogWarning("[{JobKey}] {Msg}", jobKey, errorMessage);
                 }
                 
@@ -245,7 +245,8 @@ public class ProcessRunnerJob : IJob
     {
         try
         {
-            using var conn = new SqliteConnection("Data Source=quartz.db;");
+            string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Cache=Shared;");
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
