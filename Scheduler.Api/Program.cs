@@ -40,7 +40,7 @@ using (var connection = new SqliteConnection(connString))
     
     // 開啟 Write-Ahead Logging 模式，大幅提高多環境併發讀寫能力
     using var walCmd = connection.CreateCommand();
-    walCmd.CommandText = "PRAGMA journal_mode=WAL;";
+    walCmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA temp_store=MEMORY;";
     walCmd.ExecuteNonQuery();
 
     using var logCommand = connection.CreateCommand();
@@ -60,6 +60,11 @@ using (var connection = new SqliteConnection(connString))
             EventId INTEGER
         );";
     logCommand.ExecuteNonQuery();
+
+    // 為特定高頻查詢的查詢與排序建立索引，避免巨量 log 時引發硬碟排序寫入而開啟失敗
+    using var indexCmd = connection.CreateCommand();
+    indexCmd.CommandText = "CREATE INDEX IF NOT EXISTS IDX_JobExecutionLogs_Group_Name_FireTime ON JobExecutionLogs (JobGroup, JobName, FireTimeUtc DESC);";
+    indexCmd.ExecuteNonQuery();
 
     try
     {
