@@ -37,6 +37,12 @@ if (!File.Exists(dbPath))
 using (var connection = new SqliteConnection(connString))
 {
     connection.Open();
+    
+    // 開啟 Write-Ahead Logging 模式，大幅提高多環境併發讀寫能力
+    using var walCmd = connection.CreateCommand();
+    walCmd.CommandText = "PRAGMA journal_mode=WAL;";
+    walCmd.ExecuteNonQuery();
+
     using var logCommand = connection.CreateCommand();
     logCommand.CommandText = @"
         CREATE TABLE IF NOT EXISTS JobExecutionLogs (
