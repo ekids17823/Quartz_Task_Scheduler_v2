@@ -108,6 +108,16 @@ builder.Services.AddQuartz(q =>
         });
         s.UseNewtonsoftJsonSerializer();
     });
+
+    // 註冊系統內部全自動的資料庫清理維護任務
+    var cleanupJobKey = new JobKey("System_LogCleanup", "System");
+    q.AddJob<LogCleanupJob>(opts => opts.WithIdentity(cleanupJobKey).WithDescription("系統內部每日維護任務：清除過期的歷程與壓縮釋放空間。").StoreDurably());
+    q.AddTrigger(opts => opts
+        .ForJob(cleanupJobKey)
+        .WithIdentity("System_LogCleanup_Trigger", "System")
+        // 預設為每天凌晨 3:00 自動進行掃描與清除
+        .WithCronSchedule("0 0 3 * * ?")
+    );
 });
 
 // 3. 註冊 Quartz 的託管服務 (背景執行)

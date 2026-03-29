@@ -30,4 +30,7 @@ msbuild.wrn
 
 # Visual Studio 2015
 .vs/
-Scheduler.Api/bin/Debug/net8.0/quartz.db
+# SQLite 資料庫主檔與 WAL 模式關聯的快取暫存檔 (不限路徑)
+quartz.db
+quartz.db-wal
+quartz.db-shm
