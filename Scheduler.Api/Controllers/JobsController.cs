@@ -403,7 +403,26 @@ public class JobsController : ControllerBase
                 });
             }
 
-            triggersToSchedule.Add(tb.Build());
+            var builtTrigger = tb.Build();
+
+            // 若為循環任務，且使用者未勾選「補跑」，我們直接精算未來的真實起跑點
+            if (!request.MisfireActionFireAndProceed)
+            {
+                var triggerStartTime = builtTrigger.StartTimeUtc;
+                // 若引擎判定目前的起跑點是在過去或剛好是「現在」，為了避免存檔馬上第一發觸發
+                if (triggerStartTime <= DateTimeOffset.UtcNow)
+                {
+                    var nextFire = builtTrigger.GetFireTimeAfter(DateTimeOffset.UtcNow);
+                    if (nextFire.HasValue)
+                    {
+                        // 覆寫啟動時間為純未來的下一個正確節點，讓它安靜等待到那刻
+                        tb.StartAt(nextFire.Value);
+                        builtTrigger = tb.Build();
+                    }
+                }
+            }
+
+            triggersToSchedule.Add(builtTrigger);
         }
 
         if (triggersToSchedule.Count == 0)
