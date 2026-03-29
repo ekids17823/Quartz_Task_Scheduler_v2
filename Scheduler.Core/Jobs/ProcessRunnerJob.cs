@@ -246,7 +246,7 @@ public class ProcessRunnerJob : IJob
         try
         {
             string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Cache=Shared;");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"

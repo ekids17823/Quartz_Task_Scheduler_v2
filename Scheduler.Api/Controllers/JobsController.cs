@@ -33,7 +33,7 @@ public class JobsController : ControllerBase
         try
         {
             string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Cache=Shared;");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT JobGroup, JobName, ExitCode, IsSuccess, ErrorMessage, FireTimeUtc FROM JobExecutionLogs ORDER BY FireTimeUtc DESC, Id DESC";
@@ -483,7 +483,7 @@ public class JobsController : ControllerBase
     public IActionResult GetJobLogs(string group, string name)
     {
         string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Cache=Shared;");
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT * FROM JobExecutionLogs WHERE JobName = @JobName AND JobGroup = @JobGroup AND FireTimeUtc >= datetime('now', '-7 days') ORDER BY FireTimeUtc DESC, Id DESC LIMIT 2000";
@@ -527,7 +527,7 @@ public class JobsController : ControllerBase
     public IActionResult GetAuditLogs()
     {
         string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Cache=Shared;");
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT Id, EventId, EventTimeUtc, JobName, JobGroup, Description, AccountName FROM AuditLogs ORDER BY EventTimeUtc DESC, Id DESC LIMIT 1000";
@@ -554,7 +554,7 @@ public class JobsController : ControllerBase
         try
         {
             string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};Cache=Shared;");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
