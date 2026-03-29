@@ -389,12 +389,17 @@ public class JobsController : ControllerBase
             }
             else
             {
-                // Just run once immediately or at StartAt
+                // 單次執行：判斷若時間已成過去式，且使用者未勾選「補跑」，乾脆不交給引擎排程！
+                if (!request.MisfireActionFireAndProceed && tReq.StartAt.HasValue && tReq.StartAt.Value < DateTimeOffset.UtcNow)
+                {
+                    continue; // 直接跳過，不加入 triggersToSchedule，從根源截斷預設觸發！
+                }
+
+                // 反之，若時間在未來，或是使用者希望它盡快執行，則排定送出
                 tb.WithSimpleSchedule(x => 
                 {
                     x.WithRepeatCount(0);
                     if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireNow();
-                    else x.WithMisfireHandlingInstructionNextWithRemainingCount();
                 });
             }
 
