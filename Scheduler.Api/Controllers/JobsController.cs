@@ -390,7 +390,12 @@ public class JobsController : ControllerBase
             else
             {
                 // Just run once immediately or at StartAt
-                tb.WithSimpleSchedule(x => x.WithRepeatCount(0));
+                tb.WithSimpleSchedule(x => 
+                {
+                    x.WithRepeatCount(0);
+                    if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireNow();
+                    else x.WithMisfireHandlingInstructionNextWithRemainingCount();
+                });
             }
 
             triggersToSchedule.Add(tb.Build());
