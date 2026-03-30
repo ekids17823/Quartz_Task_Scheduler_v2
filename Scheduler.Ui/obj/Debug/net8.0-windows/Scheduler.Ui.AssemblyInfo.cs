@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Scheduler.Ui")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dc70c45ce8b93a108a9255dc7332a8e201cecae1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+152abca174df1b57fc73aea5dc0cb5b66eceed7f")]
 [assembly: System.Reflection.AssemblyProductAttribute("Scheduler.Ui")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Scheduler.Ui")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -20,6 +20,7 @@ public class ProcessRunnerJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
+        var fireTime = context.FireTimeUtc.UtcDateTime;
         var correlationId = Guid.NewGuid().ToString("N");
         var dataMap = context.MergedJobDataMap;
         var fileName = dataMap.ContainsKey("FileName") ? dataMap.GetString("FileName") : null;
@@ -34,7 +35,7 @@ public class ProcessRunnerJob : IJob
         bool isManual = context.MergedJobDataMap.ContainsKey("TriggerReason") && context.MergedJobDataMap.GetString("TriggerReason") == "Manual";
         int triggerEventId = isManual ? 110 : 107;
         
-        SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, true, null, null, null, null);
+        SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, fireTime, 0, true, null, null, null, null);
         
         // WeeklyInterval 跳過機制
         if (context.Trigger.JobDataMap.ContainsKey("WeeklyInterval"))
@@ -65,7 +66,7 @@ public class ProcessRunnerJob : IJob
             if (concurrencyRule == "DoNotStart")
             {
                 _logger.LogInformation("Job {JobKey} aborted because another instance is running (Rule: DoNotStart).", jobKey);
-                SaveLog(322, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
+                SaveLog(322, correlationId, jobKey.Name, jobKey.Group, fireTime, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
                 return;
             }
             else if (concurrencyRule == "StopExisting")
@@ -90,12 +91,12 @@ public class ProcessRunnerJob : IJob
         {
             errorMessage = "執行緒失敗: 未提供 FileName";
             _logger.LogError(errorMessage);
-            SaveLog(203, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
+            SaveLog(203, correlationId, jobKey.Name, jobKey.Group, fireTime, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
             return;
         }
 
         // [129] 已建立工作處理程序
-        SaveLog(129, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+        SaveLog(129, correlationId, jobKey.Name, jobKey.Group, fireTime, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
 
         _logger.LogInformation("執行緒 [{JobKey}] 開始啟動程序: {FileName} {Arguments}", jobKey, fileName, arguments);
 
@@ -178,9 +179,9 @@ public class ProcessRunnerJob : IJob
             process.Start();
             
             // [100] 工作已開始
-            SaveLog(100, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+            SaveLog(100, correlationId, jobKey.Name, jobKey.Group, fireTime, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
             // [200] 動作已經啟動
-            SaveLog(200, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+            SaveLog(200, correlationId, jobKey.Name, jobKey.Group, fireTime, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
             if (isHidden)
             {
                 process.BeginOutputReadLine();
@@ -237,7 +238,7 @@ public class ProcessRunnerJob : IJob
         {
             stopwatch.Stop();
             int finalEventId = finalEventIdOverride ?? (isSuccess ? 201 : (errorMessage != null && errorMessage.Contains("強制中斷") ? 328 : 203));
-            SaveLog(finalEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
+            SaveLog(finalEventId, correlationId, jobKey.Name, jobKey.Group, fireTime, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
         }
     }
 

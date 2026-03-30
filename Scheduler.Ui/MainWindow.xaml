@@ -95,7 +95,7 @@
             <Border Grid.Row="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="0">
                 <DataGrid ItemsSource="{Binding Jobs}" SelectedItem="{Binding SelectedJob}" VerticalAlignment="Stretch"
                           AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
-                          RowHeight="35" FontSize="14"
+                          RowHeight="35" FontSize="14" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderThickness="0" Background="Transparent">
                     
                     <DataGrid.CellStyle>
@@ -146,12 +146,12 @@
                         <DataGridTextColumn Header="名稱" Binding="{Binding JobName}" Width="150" ElementStyle="{StaticResource CellTextStyle}"/>
                         <DataGridTextColumn Header="狀態" Binding="{Binding State}" Width="80" ElementStyle="{StaticResource CellTextStyle}"/>
                         <DataGridTextColumn Header="觸發程序" Binding="{Binding TriggerDescription}" Width="350" ElementStyle="{StaticResource CellTextStyle}"/>
-                        <DataGridTextColumn Header="下次執行時間" Binding="{Binding NextFireTime, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}, TargetNullValue='無'}" Width="220" ElementStyle="{StaticResource CellTextStyle}"/>
-                        <DataGridTextColumn Header="上次執行時間" Binding="{Binding PreviousFireTime, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}, TargetNullValue='無'}" Width="220" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="下次執行時間" Binding="{Binding NextFireTime, StringFormat=\{0:yyyy/MM/dd HH:mm:ss\}, TargetNullValue='無'}" Width="160" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="上次執行時間" Binding="{Binding PreviousFireTime, StringFormat=\{0:yyyy/MM/dd HH:mm:ss\}, TargetNullValue='無'}" Width="160" ElementStyle="{StaticResource CellTextStyle}"/>
                         <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunResult}" Width="200" ElementStyle="{StaticResource CellTextStyle}" />
-                        <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="200" ElementStyle="{StaticResource CellTextStyle}" />
-                        <DataGridTextColumn Header="建立日期" Binding="{Binding CreationDate, StringFormat=\{0:yyyy/MM/dd tt hh:mm:ss\}}" Width="220" ElementStyle="{StaticResource CellTextStyle}" />
-                        <DataGridTextColumn Header="描述" Binding="{Binding DisplayDescription}" Width="*" ElementStyle="{StaticResource CellTextStyle}"/>
+                        <DataGridTextColumn Header="作者" Binding="{Binding Author}" Width="150" ElementStyle="{StaticResource CellTextStyle}" />
+                        <DataGridTextColumn Header="建立日期" Binding="{Binding CreationDate, StringFormat=\{0:yyyy/MM/dd HH:mm:ss\}}" Width="160" ElementStyle="{StaticResource CellTextStyle}" />
+                        <DataGridTextColumn Header="描述" Binding="{Binding DisplayDescription}" Width="*" MinWidth="200" ElementStyle="{StaticResource CellTextStyle}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>

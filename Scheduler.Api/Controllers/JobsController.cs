@@ -383,7 +383,7 @@ public class JobsController : ControllerBase
                     if (repUnit == "Second") x.WithIntervalInSeconds(repVal).RepeatForever();
                     else if (repUnit == "Hour") x.WithIntervalInHours(repVal).RepeatForever();
                     else x.WithIntervalInMinutes(repVal).RepeatForever();
-                    if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireNow();
+                    if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionIgnoreMisfires();
                     else x.WithMisfireHandlingInstructionNextWithExistingCount();
                 });
             }
@@ -412,7 +412,9 @@ public class JobsController : ControllerBase
                 // 若引擎判定目前的起跑點是在過去或剛好是「現在」，為了避免存檔馬上第一發觸發
                 if (triggerStartTime <= DateTimeOffset.UtcNow)
                 {
-                    var nextFire = builtTrigger.GetFireTimeAfter(DateTimeOffset.UtcNow);
+                    // 加上 2 秒緩衝，避免在 Quartz 排程建立的微秒內立刻又過期被當作 Misfire
+                    var safeBaseTime = DateTimeOffset.UtcNow.AddSeconds(2);
+                    var nextFire = builtTrigger.GetFireTimeAfter(safeBaseTime);
                     if (nextFire.HasValue)
                     {
                         // 覆寫啟動時間為純未來的下一個正確節點，讓它安靜等待到那刻
@@ -427,6 +429,11 @@ public class JobsController : ControllerBase
 
         if (triggersToSchedule.Count == 0)
         {
+             var existingTriggers = await scheduler.GetTriggersOfJob(job.Key);
+             if (existingTriggers.Any())
+             {
+                 await scheduler.UnscheduleJobs(existingTriggers.Select(t => t.Key).ToList());
+             }
              await scheduler.AddJob(job, true);
         }
         else
