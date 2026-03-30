@@ -34,3 +34,4 @@ msbuild.wrn
 quartz.db
 quartz.db-wal
 quartz.db-shm
+Scheduler.Api/quartz.db

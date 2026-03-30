@@ -36,27 +36,41 @@ public class JobsController : ControllerBase
             using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
             conn.Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT JobGroup, JobName, ExitCode, IsSuccess, ErrorMessage, FireTimeUtc FROM JobExecutionLogs ORDER BY FireTimeUtc DESC, Id DESC";
+            cmd.CommandText = "SELECT JobGroup, JobName, ExitCode, IsSuccess, ErrorMessage, FireTimeUtc, EventId FROM JobExecutionLogs ORDER BY FireTimeUtc DESC, Id DESC";
             using var reader = cmd.ExecuteReader();
             while(reader.Read())
             {
                 string key = $"{reader.GetString(0)}::{reader.GetString(1)}";
+                int eventId = reader.GetInt32(6);
+
                 if (!lastRunResults.ContainsKey(key))
                 {
-                    lastRunTimes[key] = reader.GetDateTime(5);
                     bool isSuccess = reader.GetInt32(3) == 1;
                     string? errMsg = reader.IsDBNull(4) ? null : reader.GetString(4);
-                    if (isSuccess)
+
+                    if (eventId == 201)
                     {
                         int exitCode = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
                         lastRunResults[key] = $"成功執行 ({exitCode})";
                     }
-                    else
+                    else if (eventId == 203 || (!isSuccess && errMsg != null && !errMsg.Contains("並發") && !errMsg.Contains("中斷")))
                     {
-                        if (errMsg != null && errMsg.Contains("並發")) lastRunResults[key] = "依並發規則略過";
-                        else if (errMsg != null && errMsg.Contains("中斷")) lastRunResults[key] = "已終止";
-                        else lastRunResults[key] = "執行失敗";
+                        lastRunResults[key] = "執行失敗";
                     }
+                    else if (eventId == 322 || (errMsg != null && errMsg.Contains("並發")))
+                    {
+                        lastRunResults[key] = "依並發規則略過";
+                    }
+                    else if (eventId == 328 || (errMsg != null && errMsg.Contains("中斷")))
+                    {
+                        lastRunResults[key] = "已終止";
+                    }
+                    // 100, 107, 110, 129, 200 為過程事件，不設定結果以尋找上一筆結案
+                }
+
+                if (!lastRunTimes.ContainsKey(key) && (eventId == 107 || eventId == 110))
+                {
+                    lastRunTimes[key] = reader.GetDateTime(5);
                 }
             }
         }
@@ -65,6 +79,7 @@ public class JobsController : ControllerBase
 
         foreach (var jobKey in jobKeys)
         {
+            if (jobKey.Name == "System_LogCleanup") continue; // 隱藏系統清理排程
             var detail = await scheduler.GetJobDetail(jobKey);
             if (detail == null) continue;
             
