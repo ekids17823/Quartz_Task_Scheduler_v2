@@ -438,6 +438,34 @@ public class JobsController : ControllerBase
                     }
                 }
             }
+            else
+            {
+                // 全新基期推算法 (Misfire Catch-up 限流器)：防堵 IgnoreMisfires 造成的數千次瞬時大爆走
+                if (builtTrigger is ISimpleTrigger simpleTrigger)
+                {
+                    var startTime = simpleTrigger.StartTimeUtc;
+                    var now = DateTimeOffset.UtcNow;
+                    if (startTime < now)
+                    {
+                        var interval = simpleTrigger.RepeatInterval;
+                        if (interval.TotalMilliseconds > 0)
+                        {
+                            long diffMs = (long)(now - startTime).TotalMilliseconds;
+                            long skipCounts = diffMs / (long)interval.TotalMilliseconds;
+                            
+                            // 若落後超過一圈，攔截修正
+                            if (skipCounts > 0) 
+                            {
+                                // 把起跑點強制拉抬到最靠近現在的上一圈歷史節點，讓引擎只發覺剛好錯過 1 次
+                                // 於是完美觸發僅此一發的補跑機制，且發車的時/分/秒基期無縫重合原始設定！
+                                var newStartTime = startTime.AddMilliseconds(skipCounts * interval.TotalMilliseconds);
+                                tb.StartAt(newStartTime);
+                                builtTrigger = tb.Build();
+                            }
+                        }
+                    }
+                }
+            }
 
             triggersToSchedule.Add(builtTrigger);
         }
