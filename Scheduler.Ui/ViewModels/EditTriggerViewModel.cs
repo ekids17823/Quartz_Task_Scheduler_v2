@@ -228,20 +228,43 @@ public partial class EditTriggerViewModel : ObservableObject
             }
             
             CronExpression = existing.CronExpression ?? string.Empty;
-            ParseCron(CronExpression);
+            ParseCron(CronExpression, existing.UiTabType);
         }
     }
 
-    private void ParseCron(string cron)
+    private void ParseCron(string cron, string? uiTabType = null)
     {
         if (string.IsNullOrWhiteSpace(cron))
         {
             if (IsRepeating)
             {
-                IsInterval = true;
-                IsOneTime = false;
-                IntervalValue = RepeatInterval;
-                IntervalUnitIndex = RepeatIntervalUnitIndex;
+                if (uiTabType == "OneTime")
+                {
+                    IsOneTime = true;
+                    IsInterval = false;
+                }
+                else if (uiTabType == "Interval")
+                {
+                    IsInterval = true;
+                    IsOneTime = false;
+                    IntervalValue = RepeatInterval;
+                    IntervalUnitIndex = RepeatIntervalUnitIndex;
+                }
+                else
+                {
+                    if (HasRepeatDuration)
+                    {
+                        IsOneTime = true;
+                        IsInterval = false;
+                    }
+                    else
+                    {
+                        IsInterval = true;
+                        IsOneTime = false;
+                        IntervalValue = RepeatInterval;
+                        IntervalUnitIndex = RepeatIntervalUnitIndex;
+                    }
+                }
             }
             else
             {
@@ -420,7 +443,8 @@ public partial class EditTriggerViewModel : ObservableObject
                 RepeatDurationUnit = null,
                 WeeklyInterval = null,
                 CronExpression = null,
-                State = _original.State
+                State = _original.State,
+                UiTabType = "Interval"
             };
         }
 
@@ -436,7 +460,8 @@ public partial class EditTriggerViewModel : ObservableObject
             RepeatDurationUnit = HasRepeatDuration ? (RepeatDurationUnitIndex == 0 ? "Minute" : (RepeatDurationUnitIndex == 1 ? "Hour" : "Day")) : null,
             WeeklyInterval = IsWeekly && WeeklyInterval > 1 ? WeeklyInterval : null,
             CronExpression = string.IsNullOrWhiteSpace(finalCron) ? null : finalCron.Trim(),
-            State = _original.State
+            State = _original.State,
+            UiTabType = "OneTime"
         };
     }
 

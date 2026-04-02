@@ -195,6 +195,7 @@ public partial class AddJobViewModel : ObservableObject
                     RepeatDuration = t.RepeatDuration,
                     RepeatDurationUnit = t.RepeatDurationUnit,
                     WeeklyInterval = t.WeeklyInterval,
+                    UiTabType = t.UiTabType,
                     State = t.State
                 });
             }

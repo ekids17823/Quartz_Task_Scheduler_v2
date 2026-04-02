@@ -25,6 +25,9 @@ public class TriggerDto
     public string? RepeatDurationUnit { get; set; }
     public int? WeeklyInterval { get; set; }
     
+    // UI 反序列化專用標記
+    public string? UiTabType { get; set; }
+    
     // 狀態顯示專用
     public string State { get; set; } = string.Empty;
     public DateTime? NextFireTime { get; set; }

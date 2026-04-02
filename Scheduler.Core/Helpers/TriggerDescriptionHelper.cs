@@ -132,6 +132,9 @@ public static class TriggerDescriptionHelper
     {
         if (string.IsNullOrWhiteSpace(trigger.CronExpression))
         {
+            if (trigger.UiTabType == "OneTime") return "僅一次";
+            if (trigger.UiTabType == "Interval") return "定期循環";
+            
             int repVal = trigger.RepeatInterval ?? trigger.RepeatIntervalMinutes ?? 0;
             if (repVal > 0) return "定期循環";
             return "僅一次";
