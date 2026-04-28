@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Scheduler.Core.Models;
+using Scheduler.Core.Services;
 using Scheduler.Ui.Services;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -18,11 +19,11 @@ public class JobLogEntryViewModel
 
     public string LevelIcon 
     {
-        get => Original.EventId switch
+        get => JobLogDisplayMapper.ToLevelText(Original.EventId) switch
         {
-            107 or 129 or 100 or 200 or 201 or 110 => "ℹ️ 資訊",
-            322 or 323 or 328 => "⚠️ 警告",
-            _ => "❌ 錯誤"
+            "警告" => "⚠️ 警告",
+            "錯誤" => "❌ 錯誤",
+            _ => "ℹ️ 資訊"
         };
     }
     
@@ -32,53 +33,19 @@ public class JobLogEntryViewModel
 
     public string Category
     {
-        get => Original.EventId switch
-        {
-            110 => "使用者已經觸發工作",
-            107 => "排程器已觸發工作",
-            129 => "已建立工作處理程序",
-            100 => "工作已開始",
-            200 => "動作已經啟動",
-            201 => "動作已完成",
-            322 => "啟動要求已遭忽略，因為執行個體已在執行中",
-            323 => "啟動要求已遭忽略，因為不符合每週間隔規則",
-            328 => "動作已停止",
-            _ => "動作失敗"
-        };
+        get => JobLogDisplayMapper.ToCategory(Original.EventId);
     }
 
     public string OpCode
     {
-        get => Original.EventId switch
-        {
-            107 or 129 or 200 or 322 or 323 or 328 or 110 => "資訊",
-            100 => "(1)",
-            201 => "(2)",
-            _ => "(1)"
-        };
+        get => JobLogDisplayMapper.ToOpCode(Original.EventId);
     }
 
     public string Description 
     {
         get
         {
-            if (Original.EventId == 322) 
-                return $"工作排程器並未啟動工作 \"{Original.JobName}\"，因為相同工作的執行個體已在執行中。";
-            if (Original.EventId == 323)
-                return $"工作排程器並未啟動工作 \"{Original.JobName}\"，因為本次觸發不符合每隔 N 週的執行規則。";
-            if (Original.EventId == 328) 
-                return $"工作排程器已強迫停止工作 \"{Original.JobName}\"，因為收到外部中止要求。";
-            if (Original.EventId == 110) return $"使用者已經手動要求啟動工作 \"{Original.JobName}\"。";
-            if (Original.EventId == 107) return $"工作排程器已針對工作 \"{Original.JobName}\" 收到要求啟動的訊號。";
-            if (Original.EventId == 129) return $"工作排程器已為工作 \"{Original.JobName}\" 建立執行個體處理程序。";
-            if (Original.EventId == 100) return $"工作排程器已啟動工作 \"{Original.JobName}\" 的執行個體。";
-            if (Original.EventId == 200) return $"工作排程器動作已在工作 \"{Original.JobName}\" 中啟動。";
-            
-            string baseDesc = Original.EventId == 201 
-                ? $"工作排程器於 {EventTime} 已成功完成工作 \"{Original.JobName}\"，結束代碼：{Original.ExitCode}。" 
-                : $"工作排程器於 {EventTime} 未能順利完成工作 \"{Original.JobName}\"，因為執行緒或子程序回報失敗。這可能是因為找不到檔案、參數錯誤，或程式提早閃退。\n錯誤訊息：{Original.ErrorMessage}";
-
-            return baseDesc + $"\n執行耗時：{Duration}。";
+            return JobLogDisplayMapper.ToDescription(Original.EventId, Original.JobName, EventTime, Duration, Original.ExitCode, Original.ErrorMessage);
         }
     }
 

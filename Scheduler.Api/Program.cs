@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Quartz;
+using Scheduler.Api.Services;
 using Scheduler.Core.Jobs;
 using Scheduler.Core.Services;
 
@@ -12,6 +13,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<ITriggerFactory, TriggerFactory>();
 builder.Services.AddSingleton<IJobExecutionLogService, JobExecutionLogService>();
 builder.Services.AddSingleton<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IJobQueryService, JobQueryService>();
+builder.Services.AddScoped<IJobLogQueryService, JobLogQueryService>();
+builder.Services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
 
 // 1. 初始化資料庫
 var dbPath = Path.Combine(builder.Environment.ContentRootPath, "quartz.db");
@@ -144,3 +148,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }
