@@ -73,6 +73,8 @@ public partial class MainViewModel : ObservableObject
                     Jobs.Add(vm);
                 }
             }
+
+            NotifySelectionCommands();
         }
         catch
         {
@@ -81,6 +83,26 @@ public partial class MainViewModel : ObservableObject
             // 背景刷新失敗 (API沒開) 不必嚴重報錯
         }
     }
+
+    partial void OnSelectedJobChanged(JobItemViewModel? value)
+    {
+        NotifySelectionCommands();
+    }
+
+    private void NotifySelectionCommands()
+    {
+        RunJobCommand.NotifyCanExecuteChanged();
+        EndJobCommand.NotifyCanExecuteChanged();
+        DisableJobCommand.NotifyCanExecuteChanged();
+        EnableJobCommand.NotifyCanExecuteChanged();
+        EditJobCommand.NotifyCanExecuteChanged();
+        DeleteJobCommand.NotifyCanExecuteChanged();
+        ViewLogsCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool HasSelectedJob() => SelectedJob != null;
+    private bool CanUseActiveJob() => SelectedJob?.IsActiveState == true;
+    private bool CanEnableSelectedJob() => SelectedJob?.IsDisabledState == true;
 
     [RelayCommand]
     private void OpenAddJob()
@@ -92,7 +114,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedJob))]
     private void EditJob()
     {
         if (SelectedJob == null) return;
@@ -103,15 +125,22 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanUseActiveJob))]
     private async Task RunJobAsync()
     {
         if (SelectedJob == null) return;
-        await _apiService.TriggerJobAsync(SelectedJob.JobGroup, SelectedJob.JobName);
-        await LoadJobsAsync();
+        try
+        {
+            await _apiService.TriggerJobAsync(SelectedJob.JobGroup, SelectedJob.JobName);
+            await LoadJobsAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"執行失敗: {ex.Message}");
+        }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanUseActiveJob))]
     private async Task EndJobAsync()
     {
         if (SelectedJob == null) return;
@@ -122,7 +151,7 @@ public partial class MainViewModel : ObservableObject
         await LoadJobsAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanUseActiveJob))]
     private async Task DisableJobAsync()
     {
         if (SelectedJob == null) return;
@@ -130,7 +159,7 @@ public partial class MainViewModel : ObservableObject
         await LoadJobsAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEnableSelectedJob))]
     private async Task EnableJobAsync()
     {
         if (SelectedJob == null) return;
@@ -138,7 +167,7 @@ public partial class MainViewModel : ObservableObject
         await LoadJobsAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedJob))]
     private async Task DeleteJobAsync()
     {
         if (SelectedJob == null) return;
@@ -149,7 +178,7 @@ public partial class MainViewModel : ObservableObject
         await LoadJobsAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedJob))]
     private void ViewLogs()
     {
         if (SelectedJob == null) return;

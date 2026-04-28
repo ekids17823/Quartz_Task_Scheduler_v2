@@ -14,6 +14,7 @@ namespace Scheduler.Api.Controllers;
 public class JobsController : ControllerBase
 {
     private readonly ISchedulerFactory _schedulerFactory;
+    private static readonly TimeSpan ResumeSafetyDelay = TimeSpan.FromSeconds(2);
 
     public JobsController(ISchedulerFactory schedulerFactory)
     {
@@ -470,7 +471,11 @@ public class JobsController : ControllerBase
             triggersToSchedule.Add(builtTrigger);
         }
 
-        if (triggersToSchedule.Count == 0)
+        if (existingDisabled)
+        {
+             await scheduler.AddJob(job, true);
+        }
+        else if (triggersToSchedule.Count == 0)
         {
              var existingTriggers = await scheduler.GetTriggersOfJob(job.Key);
              if (existingTriggers.Any())
@@ -495,6 +500,11 @@ public class JobsController : ControllerBase
         var scheduler = await _schedulerFactory.GetScheduler();
         var jobKey = new JobKey(name, group);
         if (!await scheduler.CheckExists(jobKey)) return NotFound("找不到指定的排程。");
+        if (await IsJobDisabledAsync(scheduler, jobKey))
+        {
+            return Conflict("排程已停用，不能觸發。請先啟用排程。");
+        }
+
         await scheduler.TriggerJob(jobKey, new global::Quartz.JobDataMap { { "TriggerReason", "Manual" } });
         return Ok(new { Message = "已觸發。" });
     }
@@ -553,9 +563,205 @@ public class JobsController : ControllerBase
             await scheduler.AddJob(detail, true, true);
         }
 
-        await scheduler.ResumeJob(jobKey);
+        await RebuildTriggersForResumeAsync(scheduler, jobKey, detail);
         SaveAuditLog(143, name, group, "啟用了排程任務。");
         return Ok(new { Message = "排程已恢復" });
+    }
+
+    private static async Task<bool> IsJobDisabledAsync(IScheduler scheduler, JobKey jobKey)
+    {
+        var detail = await scheduler.GetJobDetail(jobKey);
+        return detail?.JobDataMap.ContainsKey("IsDisabled") == true
+            && bool.TryParse(detail.JobDataMap.GetString("IsDisabled"), out var disabled)
+            && disabled;
+    }
+
+    private static async Task RebuildTriggersForResumeAsync(IScheduler scheduler, JobKey jobKey, IJobDetail? detail)
+    {
+        detail ??= await scheduler.GetJobDetail(jobKey);
+        if (detail == null)
+        {
+            return;
+        }
+
+        var currentTriggers = await scheduler.GetTriggersOfJob(jobKey);
+        if (currentTriggers.Any())
+        {
+            await scheduler.UnscheduleJobs(currentTriggers.Select(t => t.Key).ToList());
+        }
+
+        List<TriggerDto> originalTriggers = new();
+        if (detail.JobDataMap.ContainsKey("OriginalTriggers"))
+        {
+            try
+            {
+                originalTriggers = System.Text.Json.JsonSerializer.Deserialize<List<TriggerDto>>(
+                    detail.JobDataMap.GetString("OriginalTriggers") ?? string.Empty) ?? new();
+            }
+            catch
+            {
+                originalTriggers = new();
+            }
+        }
+
+        if (originalTriggers.Count == 0)
+        {
+            await scheduler.ResumeJob(jobKey);
+            return;
+        }
+
+        bool misfireActionFireAndProceed = detail.JobDataMap.ContainsKey("MisfireActionFireAndProceed")
+            && bool.TryParse(detail.JobDataMap.GetString("MisfireActionFireAndProceed"), out var misfire)
+            && misfire;
+
+        var rebuiltTriggers = new HashSet<ITrigger>();
+        foreach (var triggerDto in originalTriggers)
+        {
+            var trigger = BuildTrigger(jobKey, triggerDto, misfireActionFireAndProceed);
+            if (trigger != null)
+            {
+                rebuiltTriggers.Add(trigger);
+            }
+        }
+
+        if (rebuiltTriggers.Count > 0)
+        {
+            await scheduler.ScheduleJob(detail, rebuiltTriggers, replace: true);
+        }
+    }
+
+    private static ITrigger? BuildTrigger(JobKey jobKey, TriggerDto tReq, bool misfireActionFireAndProceed)
+    {
+        var triggerKey = new TriggerKey(tReq.TriggerName, tReq.TriggerGroup);
+        var tb = TriggerBuilder.Create()
+            .WithIdentity(triggerKey)
+            .ForJob(jobKey)
+            .WithDescription(tReq.Description);
+
+        if (tReq.StartAt.HasValue) tb.StartAt(tReq.StartAt.Value);
+
+        if (tReq.EndAt.HasValue)
+        {
+            tb.EndAt(tReq.EndAt.Value);
+        }
+        else if (string.IsNullOrWhiteSpace(tReq.CronExpression) && tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
+        {
+            DateTimeOffset baseStart = tReq.StartAt ?? DateTimeOffset.UtcNow;
+            tb.EndAt(baseStart.Add(ToTimeSpan(tReq.RepeatDuration.Value, tReq.RepeatDurationUnit)));
+        }
+
+        int repVal = tReq.RepeatInterval ?? tReq.RepeatIntervalMinutes ?? 0;
+        string repUnit = string.IsNullOrWhiteSpace(tReq.RepeatIntervalUnit) ? "Minute" : tReq.RepeatIntervalUnit;
+        if (repVal > 0)
+        {
+            tb.UsingJobData("RepeatInterval", repVal.ToString());
+            tb.UsingJobData("RepeatIntervalUnit", repUnit);
+        }
+        if (tReq.WeeklyInterval.HasValue && tReq.WeeklyInterval.Value > 1)
+        {
+            tb.UsingJobData("WeeklyInterval", tReq.WeeklyInterval.Value.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(tReq.CronExpression))
+        {
+            ApplyCronOrDailySchedule(tb, tReq, repVal, repUnit, misfireActionFireAndProceed);
+        }
+        else if (repVal > 0)
+        {
+            tb.WithSimpleSchedule(x =>
+            {
+                if (repUnit == "Second") x.WithIntervalInSeconds(repVal).RepeatForever();
+                else if (repUnit == "Hour") x.WithIntervalInHours(repVal).RepeatForever();
+                else x.WithIntervalInMinutes(repVal).RepeatForever();
+                if (misfireActionFireAndProceed) x.WithMisfireHandlingInstructionIgnoreMisfires();
+                else x.WithMisfireHandlingInstructionNextWithExistingCount();
+            });
+        }
+        else
+        {
+            if (tReq.StartAt.HasValue && tReq.StartAt.Value <= DateTimeOffset.UtcNow)
+            {
+                return null;
+            }
+
+            tb.WithSimpleSchedule(x => x.WithRepeatCount(0));
+        }
+
+        var builtTrigger = tb.Build();
+        var nextFire = builtTrigger.GetFireTimeAfter(DateTimeOffset.UtcNow.Add(ResumeSafetyDelay));
+        if (!nextFire.HasValue)
+        {
+            return null;
+        }
+
+        tb.StartAt(nextFire.Value);
+        return tb.Build();
+    }
+
+    private static void ApplyCronOrDailySchedule(TriggerBuilder tb, TriggerDto tReq, int repVal, string repUnit, bool misfireActionFireAndProceed)
+    {
+        if (repVal > 0)
+        {
+            var parts = tReq.CronExpression!.Split(' ');
+            if (parts.Length >= 6 && int.TryParse(parts[0], out int sec) && int.TryParse(parts[1], out int min) && int.TryParse(parts[2], out int hour))
+            {
+                string dow = parts[5];
+                tb.WithDailyTimeIntervalSchedule(x =>
+                {
+                    if (repUnit == "Second") x.WithIntervalInSeconds(repVal);
+                    else if (repUnit == "Hour") x.WithIntervalInHours(repVal);
+                    else x.WithIntervalInMinutes(repVal);
+
+                    x.StartingDailyAt(new TimeOfDay(hour, min, sec));
+
+                    if (tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
+                    {
+                        var startDt = DateTime.Today.AddHours(hour).AddMinutes(min).AddSeconds(sec);
+                        var endDt = startDt.Add(ToTimeSpan(tReq.RepeatDuration.Value, tReq.RepeatDurationUnit));
+                        x.EndingDailyAt(endDt.Date > startDt.Date ? new TimeOfDay(23, 59, 59) : new TimeOfDay(endDt.Hour, endDt.Minute, endDt.Second));
+                    }
+
+                    ApplyDaysOfWeek(x, dow);
+                    if (misfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
+                    else x.WithMisfireHandlingInstructionDoNothing();
+                });
+                return;
+            }
+        }
+
+        tb.WithCronSchedule(tReq.CronExpression!, x =>
+        {
+            if (misfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
+            else x.WithMisfireHandlingInstructionDoNothing();
+        });
+    }
+
+    private static void ApplyDaysOfWeek(DailyTimeIntervalScheduleBuilder builder, string dow)
+    {
+        if (dow == "?" || dow == "*")
+        {
+            builder.OnEveryDay();
+            return;
+        }
+
+        var days = new List<DayOfWeek>();
+        if (dow.Contains("SUN")) days.Add(DayOfWeek.Sunday);
+        if (dow.Contains("MON")) days.Add(DayOfWeek.Monday);
+        if (dow.Contains("TUE")) days.Add(DayOfWeek.Tuesday);
+        if (dow.Contains("WED")) days.Add(DayOfWeek.Wednesday);
+        if (dow.Contains("THU")) days.Add(DayOfWeek.Thursday);
+        if (dow.Contains("FRI")) days.Add(DayOfWeek.Friday);
+        if (dow.Contains("SAT")) days.Add(DayOfWeek.Saturday);
+
+        if (days.Count > 0) builder.OnDaysOfTheWeek(days.ToArray());
+        else builder.OnEveryDay();
+    }
+
+    private static TimeSpan ToTimeSpan(int value, string? unit)
+    {
+        return unit == "Hour" ? TimeSpan.FromHours(value)
+            : unit == "Day" ? TimeSpan.FromDays(value)
+            : TimeSpan.FromMinutes(value);
     }
 
     [HttpGet("{group}/{name}/logs")]
