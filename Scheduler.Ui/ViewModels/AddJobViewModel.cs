@@ -21,7 +21,7 @@ public class JobLogEntryViewModel
         get => Original.EventId switch
         {
             107 or 129 or 100 or 200 or 201 or 110 => "ℹ️ 資訊",
-            322 or 328 => "⚠️ 警告",
+            322 or 323 or 328 => "⚠️ 警告",
             _ => "❌ 錯誤"
         };
     }
@@ -41,6 +41,7 @@ public class JobLogEntryViewModel
             200 => "動作已經啟動",
             201 => "動作已完成",
             322 => "啟動要求已遭忽略，因為執行個體已在執行中",
+            323 => "啟動要求已遭忽略，因為不符合每週間隔規則",
             328 => "動作已停止",
             _ => "動作失敗"
         };
@@ -50,7 +51,7 @@ public class JobLogEntryViewModel
     {
         get => Original.EventId switch
         {
-            107 or 129 or 200 or 322 or 328 or 110 => "資訊",
+            107 or 129 or 200 or 322 or 323 or 328 or 110 => "資訊",
             100 => "(1)",
             201 => "(2)",
             _ => "(1)"
@@ -63,6 +64,8 @@ public class JobLogEntryViewModel
         {
             if (Original.EventId == 322) 
                 return $"工作排程器並未啟動工作 \"{Original.JobName}\"，因為相同工作的執行個體已在執行中。";
+            if (Original.EventId == 323)
+                return $"工作排程器並未啟動工作 \"{Original.JobName}\"，因為本次觸發不符合每隔 N 週的執行規則。";
             if (Original.EventId == 328) 
                 return $"工作排程器已強迫停止工作 \"{Original.JobName}\"，因為收到外部中止要求。";
             if (Original.EventId == 110) return $"使用者已經手動要求啟動工作 \"{Original.JobName}\"。";

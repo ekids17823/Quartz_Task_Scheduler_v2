@@ -2,5 +2,6 @@
   <Project Path="Scheduler.Api/Scheduler.Api.csproj" />
   <Project Path="Scheduler.Core/Scheduler.Core.csproj" />
   <Project Path="Scheduler.Simulator/Scheduler.Simulator.csproj" />
+  <Project Path="Scheduler.Tests/Scheduler.Tests.csproj" />
   <Project Path="Scheduler.Ui/Scheduler.Ui.csproj" />
 </Solution>

@@ -46,37 +46,53 @@ public class SchedulerApiService
     public async Task CreateJobAsync(ScheduleRequest request)
     {
         var response = await _httpClient.PostAsJsonAsync("api/jobs", request);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task TriggerJobAsync(string group, string name)
     {
         var response = await _httpClient.PostAsync($"api/jobs/{group}/{name}/trigger", null);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task PauseJobAsync(string group, string name)
     {
         var response = await _httpClient.PostAsync($"api/jobs/{group}/{name}/pause", null);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task ResumeJobAsync(string group, string name)
     {
         var response = await _httpClient.PostAsync($"api/jobs/{group}/{name}/resume", null);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task DeleteJobAsync(string group, string name)
     {
         var response = await _httpClient.DeleteAsync($"api/jobs/{group}/{name}");
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task InterruptJobAsync(string group, string name)
     {
         var response = await _httpClient.PostAsync($"api/jobs/{group}/{name}/interrupt", null);
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
+    }
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var body = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            body = response.ReasonPhrase ?? "API 回傳錯誤。";
+        }
+
+        throw new HttpRequestException($"API 錯誤 ({(int)response.StatusCode} {response.StatusCode}): {body}");
     }
 
     public async Task<List<JobLogEntry>> GetJobLogsAsync(string group, string name)

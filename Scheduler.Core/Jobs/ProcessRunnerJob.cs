@@ -1,7 +1,7 @@
 using Quartz;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using Microsoft.Data.Sqlite;
+using Scheduler.Core.Services;
 using System.Text;
 using System;
 using System.Threading.Tasks;
@@ -12,10 +12,12 @@ namespace Scheduler.Core.Jobs;
 public class ProcessRunnerJob : IJob
 {
     private readonly ILogger<ProcessRunnerJob> _logger;
+    private readonly IJobExecutionLogService _jobLogService;
 
-    public ProcessRunnerJob(ILogger<ProcessRunnerJob> logger)
+    public ProcessRunnerJob(ILogger<ProcessRunnerJob> logger, IJobExecutionLogService jobLogService)
     {
         _logger = logger;
+        _jobLogService = jobLogService;
     }
 
     public async Task Execute(IJobExecutionContext context)
@@ -34,7 +36,7 @@ public class ProcessRunnerJob : IJob
         bool isManual = context.MergedJobDataMap.ContainsKey("TriggerReason") && context.MergedJobDataMap.GetString("TriggerReason") == "Manual";
         int triggerEventId = isManual ? 110 : 107;
         
-        SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, true, null, null, null, null);
+        await SaveLog(triggerEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, true, null, null, null, null);
         
         // WeeklyInterval 跳過機制
         if (context.Trigger.JobDataMap.ContainsKey("WeeklyInterval"))
@@ -50,6 +52,7 @@ public class ProcessRunnerJob : IJob
                 if (weeksPassed % wInt != 0)
                 {
                     _logger.LogInformation("Job {JobKey} skipped this execution because it is an 'off' week (WeeklyInterval = {wInt}).", jobKey, wInt);
+                    await SaveLog(323, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, false, null, null, null, $"因每隔 {wInt} 週規則略過該次執行。");
                     return; // 放棄執行
                 }
             }
@@ -65,7 +68,7 @@ public class ProcessRunnerJob : IJob
             if (concurrencyRule == "DoNotStart")
             {
                 _logger.LogInformation("Job {JobKey} aborted because another instance is running (Rule: DoNotStart).", jobKey);
-                SaveLog(322, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
+                await SaveLog(322, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, 0, false, null, null, null, "因並發規則 (不要啟動新執行個體) 而跳過該次執行。");
                 return;
             }
             else if (concurrencyRule == "StopExisting")
@@ -90,12 +93,12 @@ public class ProcessRunnerJob : IJob
         {
             errorMessage = "執行緒失敗: 未提供 FileName";
             _logger.LogError(errorMessage);
-            SaveLog(203, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
+            await SaveLog(203, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, false, null, null, null, errorMessage);
             return;
         }
 
         // [129] 已建立工作處理程序
-        SaveLog(129, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+        await SaveLog(129, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
 
         _logger.LogInformation("執行緒 [{JobKey}] 開始啟動程序: {FileName} {Arguments}", jobKey, fileName, arguments);
 
@@ -178,9 +181,9 @@ public class ProcessRunnerJob : IJob
             process.Start();
             
             // [100] 工作已開始
-            SaveLog(100, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+            await SaveLog(100, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
             // [200] 動作已經啟動
-            SaveLog(200, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
+            await SaveLog(200, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, true, null, null, null, null);
             if (isHidden)
             {
                 process.BeginOutputReadLine();
@@ -237,40 +240,12 @@ public class ProcessRunnerJob : IJob
         {
             stopwatch.Stop();
             int finalEventId = finalEventIdOverride ?? (isSuccess ? 201 : (errorMessage != null && errorMessage.Contains("強制中斷") ? 328 : 203));
-            SaveLog(finalEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
+            await SaveLog(finalEventId, correlationId, jobKey.Name, jobKey.Group, DateTime.UtcNow, stopwatch.ElapsedMilliseconds, isSuccess, exitCode, stdOutBuilder.ToString(), stdErrBuilder.ToString(), errorMessage);
         }
     }
 
-    private void SaveLog(int eventId, string correlation, string name, string group, DateTime fireTime, long runTime, bool isSuccess, int? exitCode, string? stdOut, string? stdErr, string? error)
+    private Task SaveLog(int eventId, string correlation, string name, string group, DateTime fireTime, long runTime, bool isSuccess, int? exitCode, string? stdOut, string? stdErr, string? error)
     {
-        try
-        {
-            string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                INSERT INTO JobExecutionLogs 
-                (JobName, JobGroup, FireTimeUtc, RunTimeMs, IsSuccess, ExitCode, StdOut, StdErr, ErrorMessage, CorrelationId, EventId) 
-                VALUES (@Name, @Group, @FireTime, @RunTime, @IsSuccess, @ExitCode, @StdOut, @StdErr, @Error, @CorrId, @EventId)";
-                
-            cmd.Parameters.AddWithValue("@Name", name);
-            cmd.Parameters.AddWithValue("@Group", group);
-            cmd.Parameters.AddWithValue("@FireTime", fireTime);
-            cmd.Parameters.AddWithValue("@RunTime", runTime);
-            cmd.Parameters.AddWithValue("@IsSuccess", isSuccess ? 1 : 0);
-            cmd.Parameters.AddWithValue("@ExitCode", (object?)exitCode ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@StdOut", (object?)stdOut ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@StdErr", (object?)stdErr ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@Error", (object?)error ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@CorrId", correlation);
-            cmd.Parameters.AddWithValue("@EventId", eventId);
-            
-            cmd.ExecuteNonQuery();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "無法寫入排程執行日誌。");
-        }
+        return _jobLogService.SaveAsync(eventId, correlation, name, group, fireTime, runTime, isSuccess, exitCode, stdOut, stdErr, error);
     }
 }

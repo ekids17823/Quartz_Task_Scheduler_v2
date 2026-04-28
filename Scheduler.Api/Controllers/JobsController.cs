@@ -2,10 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Quartz;
 using Scheduler.Core.Jobs;
 using Scheduler.Core.Models;
+using Scheduler.Core.Services;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System;
 
 namespace Scheduler.Api.Controllers;
 
@@ -14,11 +14,14 @@ namespace Scheduler.Api.Controllers;
 public class JobsController : ControllerBase
 {
     private readonly ISchedulerFactory _schedulerFactory;
-    private static readonly TimeSpan ResumeSafetyDelay = TimeSpan.FromSeconds(2);
+    private readonly ITriggerFactory _triggerFactory;
+    private readonly IAuditLogService _auditLogService;
 
-    public JobsController(ISchedulerFactory schedulerFactory)
+    public JobsController(ISchedulerFactory schedulerFactory, ITriggerFactory triggerFactory, IAuditLogService auditLogService)
     {
         _schedulerFactory = schedulerFactory;
+        _triggerFactory = triggerFactory;
+        _auditLogService = auditLogService;
     }
 
     [HttpGet]
@@ -61,6 +64,10 @@ public class JobsController : ControllerBase
                     else if (eventId == 322 || (errMsg != null && errMsg.Contains("並發")))
                     {
                         lastRunResults[key] = "依並發規則略過";
+                    }
+                    else if (eventId == 323 || (errMsg != null && errMsg.Contains("週規則")))
+                    {
+                        lastRunResults[key] = "依每週間隔規則略過";
                     }
                     else if (eventId == 328 || (errMsg != null && errMsg.Contains("中斷")))
                     {
@@ -286,189 +293,11 @@ public class JobsController : ControllerBase
 
         foreach (var tReq in request.Triggers)
         {
-            var triggerKey = new TriggerKey(tReq.TriggerName, tReq.TriggerGroup);
-            var tb = TriggerBuilder.Create()
-                .WithIdentity(triggerKey)
-                .ForJob(job)
-                .WithDescription(tReq.Description);
-
-            if (tReq.StartAt.HasValue) tb.StartAt(tReq.StartAt.Value);
-            
-            if (tReq.EndAt.HasValue) 
+            var builtTrigger = _triggerFactory.BuildForCreate(jobKey, tReq, request.MisfireActionFireAndProceed);
+            if (builtTrigger != null)
             {
-                tb.EndAt(tReq.EndAt.Value);
+                triggersToSchedule.Add(builtTrigger);
             }
-            else if (string.IsNullOrWhiteSpace(tReq.CronExpression) && tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
-            {
-                DateTimeOffset baseStart = tReq.StartAt ?? DateTimeOffset.UtcNow;
-                string durUnit = tReq.RepeatDurationUnit ?? "Minute";
-                var ts = durUnit == "Minute" ? TimeSpan.FromMinutes(tReq.RepeatDuration.Value) :
-                         durUnit == "Hour" ? TimeSpan.FromHours(tReq.RepeatDuration.Value) :
-                         TimeSpan.FromDays(tReq.RepeatDuration.Value);
-                tb.EndAt(baseStart.Add(ts));
-            }
-            int repVal = tReq.RepeatInterval ?? tReq.RepeatIntervalMinutes ?? 0;
-            string repUnit = string.IsNullOrWhiteSpace(tReq.RepeatIntervalUnit) ? "Minute" : tReq.RepeatIntervalUnit;
-            if (repVal > 0)
-            {
-                tb.UsingJobData("RepeatInterval", repVal.ToString());
-                tb.UsingJobData("RepeatIntervalUnit", repUnit);
-            }
-            if (tReq.WeeklyInterval.HasValue && tReq.WeeklyInterval.Value > 1)
-            {
-                tb.UsingJobData("WeeklyInterval", tReq.WeeklyInterval.Value.ToString());
-            }
-
-            if (!string.IsNullOrWhiteSpace(tReq.CronExpression))
-            {
-                // 若進階設定啟用了「每 N 分鐘重複一次」，且本身是每天/每週的 Cron，我們必須轉譯為 DailyTimeIntervalSchedule
-                if (repVal > 0)
-                {
-                    var parts = tReq.CronExpression.Split(' ');
-                    // 確保這是由我們 ViewModel 產生、可預測的 Cron (長度 >= 6 且包含具體時分)
-                    if (parts.Length >= 6 && int.TryParse(parts[0], out int sec) && int.TryParse(parts[1], out int min) && int.TryParse(parts[2], out int hour))
-                    {
-                        string dow = parts[5];
-                        tb.WithDailyTimeIntervalSchedule(x => 
-                        {
-                            if (repUnit == "Second") x.WithIntervalInSeconds(repVal);
-                            else if (repUnit == "Hour") x.WithIntervalInHours(repVal);
-                            else x.WithIntervalInMinutes(repVal);
-                            
-                            x.StartingDailyAt(new TimeOfDay(hour, min, sec));
-
-                            if (tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
-                            {
-                                string dUnit = tReq.RepeatDurationUnit ?? "Minute";
-                                var ts = dUnit == "Minute" ? TimeSpan.FromMinutes(tReq.RepeatDuration.Value) :
-                                         dUnit == "Hour" ? TimeSpan.FromHours(tReq.RepeatDuration.Value) :
-                                         TimeSpan.FromDays(tReq.RepeatDuration.Value);
-                                var startDt = DateTime.Today.AddHours(hour).AddMinutes(min).AddSeconds(sec);
-                                var endDt = startDt.Add(ts);
-                                if (endDt.Date > startDt.Date)
-                                    x.EndingDailyAt(new TimeOfDay(23, 59, 59));
-                                else
-                                    x.EndingDailyAt(new TimeOfDay(endDt.Hour, endDt.Minute, endDt.Second));
-                            }
-
-                            if (dow != "?" && dow != "*") 
-                            {
-                                var days = new List<DayOfWeek>();
-                                if (dow.Contains("SUN")) days.Add(DayOfWeek.Sunday);
-                                if (dow.Contains("MON")) days.Add(DayOfWeek.Monday);
-                                if (dow.Contains("TUE")) days.Add(DayOfWeek.Tuesday);
-                                if (dow.Contains("WED")) days.Add(DayOfWeek.Wednesday);
-                                if (dow.Contains("THU")) days.Add(DayOfWeek.Thursday);
-                                if (dow.Contains("FRI")) days.Add(DayOfWeek.Friday);
-                                if (dow.Contains("SAT")) days.Add(DayOfWeek.Saturday);
-                                if (days.Count > 0) x.OnDaysOfTheWeek(days.ToArray());
-                                else x.OnEveryDay();
-                            } 
-                            else 
-                            {
-                                x.OnEveryDay();
-                            }
-
-                            if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
-                            else x.WithMisfireHandlingInstructionDoNothing();
-                        });
-                    }
-                    else
-                    {
-                        // 無法轉譯 (例如每月執行)，回退純 Cron
-                        tb.WithCronSchedule(tReq.CronExpression, x => 
-                        {
-                            if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
-                            else x.WithMisfireHandlingInstructionDoNothing();
-                        });
-                    }
-                }
-                else
-                {
-                    tb.WithCronSchedule(tReq.CronExpression, x => 
-                    {
-                        if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
-                        else x.WithMisfireHandlingInstructionDoNothing();
-                    });
-                }
-            }
-            else if (repVal > 0)
-            {
-                tb.WithSimpleSchedule(x => 
-                {
-                    if (repUnit == "Second") x.WithIntervalInSeconds(repVal).RepeatForever();
-                    else if (repUnit == "Hour") x.WithIntervalInHours(repVal).RepeatForever();
-                    else x.WithIntervalInMinutes(repVal).RepeatForever();
-                    if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionIgnoreMisfires();
-                    else x.WithMisfireHandlingInstructionNextWithExistingCount();
-                });
-            }
-            else
-            {
-                // 單次執行：判斷若時間已成過去式，且使用者未勾選「補跑」，乾脆不交給引擎排程！
-                if (!request.MisfireActionFireAndProceed && tReq.StartAt.HasValue && tReq.StartAt.Value < DateTimeOffset.UtcNow)
-                {
-                    continue; // 直接跳過，不加入 triggersToSchedule，從根源截斷預設觸發！
-                }
-
-                // 反之，若時間在未來，或是使用者希望它盡快執行，則排定送出
-                tb.WithSimpleSchedule(x => 
-                {
-                    x.WithRepeatCount(0);
-                    if (request.MisfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireNow();
-                });
-            }
-
-            var builtTrigger = tb.Build();
-
-            // 若為循環任務，且使用者未勾選「補跑」，我們直接精算未來的真實起跑點
-            if (!request.MisfireActionFireAndProceed)
-            {
-                var triggerStartTime = builtTrigger.StartTimeUtc;
-                // 若引擎判定目前的起跑點是在過去或剛好是「現在」，為了避免存檔馬上第一發觸發
-                if (triggerStartTime <= DateTimeOffset.UtcNow)
-                {
-                    // 加上 2 秒緩衝，避免在 Quartz 排程建立的微秒內立刻又過期被當作 Misfire
-                    var safeBaseTime = DateTimeOffset.UtcNow.AddSeconds(2);
-                    var nextFire = builtTrigger.GetFireTimeAfter(safeBaseTime);
-                    if (nextFire.HasValue)
-                    {
-                        // 覆寫啟動時間為純未來的下一個正確節點，讓它安靜等待到那刻
-                        tb.StartAt(nextFire.Value);
-                        builtTrigger = tb.Build();
-                    }
-                }
-            }
-            else
-            {
-                // 全新基期推算法 (Misfire Catch-up 限流器)：防堵 IgnoreMisfires 造成的數千次瞬時大爆走
-                if (builtTrigger is ISimpleTrigger simpleTrigger)
-                {
-                    var startTime = simpleTrigger.StartTimeUtc;
-                    var now = DateTimeOffset.UtcNow;
-                    if (startTime < now)
-                    {
-                        var interval = simpleTrigger.RepeatInterval;
-                        if (interval.TotalMilliseconds > 0)
-                        {
-                            long diffMs = (long)(now - startTime).TotalMilliseconds;
-                            long skipCounts = diffMs / (long)interval.TotalMilliseconds;
-                            
-                            // 若落後超過一圈，攔截修正
-                            if (skipCounts > 0) 
-                            {
-                                // 把起跑點強制拉抬到最靠近現在的上一圈歷史節點，讓引擎只發覺剛好錯過 1 次
-                                // 於是完美觸發僅此一發的補跑機制，且發車的時/分/秒基期無縫重合原始設定！
-                                var newStartTime = startTime.AddMilliseconds(skipCounts * interval.TotalMilliseconds);
-                                tb.StartAt(newStartTime);
-                                builtTrigger = tb.Build();
-                            }
-                        }
-                    }
-                }
-            }
-
-            triggersToSchedule.Add(builtTrigger);
         }
 
         if (existingDisabled)
@@ -489,7 +318,7 @@ public class JobsController : ControllerBase
              await scheduler.ScheduleJob(job, triggersToSchedule, replace: true);
         }
 
-        SaveAuditLog(isUpdate ? 140 : 106, request.JobName, request.JobGroup, isUpdate ? "更新了排程任務的設定與觸發條件。" : "建立了新的排程任務。");
+        await _auditLogService.SaveAsync(isUpdate ? 140 : 106, request.JobName, request.JobGroup, isUpdate ? "更新了排程任務的設定與觸發條件。" : "建立了新的排程任務。");
 
         return Ok(new { Message = "排程建立或更新成功" });
     }
@@ -526,7 +355,7 @@ public class JobsController : ControllerBase
         var jobKey = new JobKey(name, group);
         if (!await scheduler.CheckExists(jobKey)) return NotFound();
         await scheduler.DeleteJob(jobKey);
-        SaveAuditLog(141, name, group, "刪除了排程任務。");
+        await _auditLogService.SaveAsync(141, name, group, "刪除了排程任務。");
         return Ok(new { Message = "排程刪除成功" });
     }
 
@@ -545,7 +374,7 @@ public class JobsController : ControllerBase
         }
 
         await scheduler.PauseJob(jobKey);
-        SaveAuditLog(142, name, group, "停用了排程任務。");
+        await _auditLogService.SaveAsync(142, name, group, "停用了排程任務。");
         return Ok(new { Message = "排程已暫停" });
     }
 
@@ -564,7 +393,7 @@ public class JobsController : ControllerBase
         }
 
         await RebuildTriggersForResumeAsync(scheduler, jobKey, detail);
-        SaveAuditLog(143, name, group, "啟用了排程任務。");
+        await _auditLogService.SaveAsync(143, name, group, "啟用了排程任務。");
         return Ok(new { Message = "排程已恢復" });
     }
 
@@ -576,7 +405,7 @@ public class JobsController : ControllerBase
             && disabled;
     }
 
-    private static async Task RebuildTriggersForResumeAsync(IScheduler scheduler, JobKey jobKey, IJobDetail? detail)
+    private async Task RebuildTriggersForResumeAsync(IScheduler scheduler, JobKey jobKey, IJobDetail? detail)
     {
         detail ??= await scheduler.GetJobDetail(jobKey);
         if (detail == null)
@@ -617,7 +446,7 @@ public class JobsController : ControllerBase
         var rebuiltTriggers = new HashSet<ITrigger>();
         foreach (var triggerDto in originalTriggers)
         {
-            var trigger = BuildTrigger(jobKey, triggerDto, misfireActionFireAndProceed);
+            var trigger = _triggerFactory.BuildForResume(jobKey, triggerDto, misfireActionFireAndProceed);
             if (trigger != null)
             {
                 rebuiltTriggers.Add(trigger);
@@ -628,140 +457,6 @@ public class JobsController : ControllerBase
         {
             await scheduler.ScheduleJob(detail, rebuiltTriggers, replace: true);
         }
-    }
-
-    private static ITrigger? BuildTrigger(JobKey jobKey, TriggerDto tReq, bool misfireActionFireAndProceed)
-    {
-        var triggerKey = new TriggerKey(tReq.TriggerName, tReq.TriggerGroup);
-        var tb = TriggerBuilder.Create()
-            .WithIdentity(triggerKey)
-            .ForJob(jobKey)
-            .WithDescription(tReq.Description);
-
-        if (tReq.StartAt.HasValue) tb.StartAt(tReq.StartAt.Value);
-
-        if (tReq.EndAt.HasValue)
-        {
-            tb.EndAt(tReq.EndAt.Value);
-        }
-        else if (string.IsNullOrWhiteSpace(tReq.CronExpression) && tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
-        {
-            DateTimeOffset baseStart = tReq.StartAt ?? DateTimeOffset.UtcNow;
-            tb.EndAt(baseStart.Add(ToTimeSpan(tReq.RepeatDuration.Value, tReq.RepeatDurationUnit)));
-        }
-
-        int repVal = tReq.RepeatInterval ?? tReq.RepeatIntervalMinutes ?? 0;
-        string repUnit = string.IsNullOrWhiteSpace(tReq.RepeatIntervalUnit) ? "Minute" : tReq.RepeatIntervalUnit;
-        if (repVal > 0)
-        {
-            tb.UsingJobData("RepeatInterval", repVal.ToString());
-            tb.UsingJobData("RepeatIntervalUnit", repUnit);
-        }
-        if (tReq.WeeklyInterval.HasValue && tReq.WeeklyInterval.Value > 1)
-        {
-            tb.UsingJobData("WeeklyInterval", tReq.WeeklyInterval.Value.ToString());
-        }
-
-        if (!string.IsNullOrWhiteSpace(tReq.CronExpression))
-        {
-            ApplyCronOrDailySchedule(tb, tReq, repVal, repUnit, misfireActionFireAndProceed);
-        }
-        else if (repVal > 0)
-        {
-            tb.WithSimpleSchedule(x =>
-            {
-                if (repUnit == "Second") x.WithIntervalInSeconds(repVal).RepeatForever();
-                else if (repUnit == "Hour") x.WithIntervalInHours(repVal).RepeatForever();
-                else x.WithIntervalInMinutes(repVal).RepeatForever();
-                if (misfireActionFireAndProceed) x.WithMisfireHandlingInstructionIgnoreMisfires();
-                else x.WithMisfireHandlingInstructionNextWithExistingCount();
-            });
-        }
-        else
-        {
-            if (tReq.StartAt.HasValue && tReq.StartAt.Value <= DateTimeOffset.UtcNow)
-            {
-                return null;
-            }
-
-            tb.WithSimpleSchedule(x => x.WithRepeatCount(0));
-        }
-
-        var builtTrigger = tb.Build();
-        var nextFire = builtTrigger.GetFireTimeAfter(DateTimeOffset.UtcNow.Add(ResumeSafetyDelay));
-        if (!nextFire.HasValue)
-        {
-            return null;
-        }
-
-        tb.StartAt(nextFire.Value);
-        return tb.Build();
-    }
-
-    private static void ApplyCronOrDailySchedule(TriggerBuilder tb, TriggerDto tReq, int repVal, string repUnit, bool misfireActionFireAndProceed)
-    {
-        if (repVal > 0)
-        {
-            var parts = tReq.CronExpression!.Split(' ');
-            if (parts.Length >= 6 && int.TryParse(parts[0], out int sec) && int.TryParse(parts[1], out int min) && int.TryParse(parts[2], out int hour))
-            {
-                string dow = parts[5];
-                tb.WithDailyTimeIntervalSchedule(x =>
-                {
-                    if (repUnit == "Second") x.WithIntervalInSeconds(repVal);
-                    else if (repUnit == "Hour") x.WithIntervalInHours(repVal);
-                    else x.WithIntervalInMinutes(repVal);
-
-                    x.StartingDailyAt(new TimeOfDay(hour, min, sec));
-
-                    if (tReq.RepeatDuration.HasValue && tReq.RepeatDuration.Value > 0)
-                    {
-                        var startDt = DateTime.Today.AddHours(hour).AddMinutes(min).AddSeconds(sec);
-                        var endDt = startDt.Add(ToTimeSpan(tReq.RepeatDuration.Value, tReq.RepeatDurationUnit));
-                        x.EndingDailyAt(endDt.Date > startDt.Date ? new TimeOfDay(23, 59, 59) : new TimeOfDay(endDt.Hour, endDt.Minute, endDt.Second));
-                    }
-
-                    ApplyDaysOfWeek(x, dow);
-                    if (misfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
-                    else x.WithMisfireHandlingInstructionDoNothing();
-                });
-                return;
-            }
-        }
-
-        tb.WithCronSchedule(tReq.CronExpression!, x =>
-        {
-            if (misfireActionFireAndProceed) x.WithMisfireHandlingInstructionFireAndProceed();
-            else x.WithMisfireHandlingInstructionDoNothing();
-        });
-    }
-
-    private static void ApplyDaysOfWeek(DailyTimeIntervalScheduleBuilder builder, string dow)
-    {
-        if (dow == "?" || dow == "*")
-        {
-            builder.OnEveryDay();
-            return;
-        }
-
-        var days = new List<DayOfWeek>();
-        if (dow.Contains("SUN")) days.Add(DayOfWeek.Sunday);
-        if (dow.Contains("MON")) days.Add(DayOfWeek.Monday);
-        if (dow.Contains("TUE")) days.Add(DayOfWeek.Tuesday);
-        if (dow.Contains("WED")) days.Add(DayOfWeek.Wednesday);
-        if (dow.Contains("THU")) days.Add(DayOfWeek.Thursday);
-        if (dow.Contains("FRI")) days.Add(DayOfWeek.Friday);
-        if (dow.Contains("SAT")) days.Add(DayOfWeek.Saturday);
-
-        if (days.Count > 0) builder.OnDaysOfTheWeek(days.ToArray());
-        else builder.OnEveryDay();
-    }
-
-    private static TimeSpan ToTimeSpan(int value, string? unit)
-    {
-        return unit == "Hour" ? TimeSpan.FromHours(value)
-            : unit == "Day" ? TimeSpan.FromDays(value)
-            : TimeSpan.FromMinutes(value);
     }
 
     [HttpGet("{group}/{name}/logs")]
@@ -786,7 +481,7 @@ public class JobsController : ControllerBase
             // 舊版資料安全相容性映射
             if (eventId == 0)
             {
-                eventId = isSuccess ? 201 : (errMsg != null && errMsg.Contains("強制中斷") ? 328 : (errMsg != null && errMsg.Contains("並發") ? 322 : 203));
+                eventId = isSuccess ? 201 : (errMsg != null && errMsg.Contains("強制中斷") ? 328 : (errMsg != null && errMsg.Contains("並發") ? 322 : (errMsg != null && errMsg.Contains("週規則") ? 323 : 203)));
             }
             
             logs.Add(new JobLogEntry
@@ -834,25 +529,4 @@ public class JobsController : ControllerBase
         return Ok(logs);
     }
 
-    private void SaveAuditLog(int eventId, string jobName, string jobGroup, string description)
-    {
-        try
-        {
-            string dbPath = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "quartz.db");
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath};");
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                INSERT INTO AuditLogs (EventId, EventTimeUtc, JobName, JobGroup, Description, AccountName) 
-                VALUES (@EventId, @EventTimeUtc, @JobName, @JobGroup, @Description, @AccountName)";
-            cmd.Parameters.AddWithValue("@EventId", eventId);
-            cmd.Parameters.AddWithValue("@EventTimeUtc", DateTime.UtcNow);
-            cmd.Parameters.AddWithValue("@JobName", jobName);
-            cmd.Parameters.AddWithValue("@JobGroup", jobGroup);
-            cmd.Parameters.AddWithValue("@Description", description);
-            cmd.Parameters.AddWithValue("@AccountName", Environment.UserDomainName + "\\" + Environment.UserName);
-            cmd.ExecuteNonQuery();
-        }
-        catch { }
-    }
 }
